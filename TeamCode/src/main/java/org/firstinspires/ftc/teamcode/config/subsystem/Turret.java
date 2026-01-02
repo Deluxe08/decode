@@ -17,7 +17,7 @@ import com.seattlesolvers.solverslib.command.SubsystemBase;
 @Config
 public class Turret {
     public static double error = 0, power = 0, manualPower = 0;
-    public static double rpt = 0.0029919;
+    public static double rpt = 0.0029919; // single tick enoder value to radians
 
     public final DcMotorEx m;
     private PIDFController p, s; // pidf controller for turret
@@ -35,6 +35,7 @@ public class Turret {
         p = new PIDFController(new PIDFCoefficients(kp, 0, kd, kf));
         s = new PIDFController(new PIDFCoefficients(sp, 0, sd, sf));
     }
+
 
     private void setTurretTarget(double ticks) {
         t = ticks;

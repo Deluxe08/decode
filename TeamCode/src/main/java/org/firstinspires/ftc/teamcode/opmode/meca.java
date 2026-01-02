@@ -1,113 +1,137 @@
 package org.firstinspires.ftc.teamcode.opmode;
-//package org.firstinspires.ftc.teamcode;
+
+import com.qualcomm.hardware.lynx.LynxModule;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.hardware.DcMotor;
+import com.qualcomm.robotcore.hardware.DcMotorSimple;
+import org.firstinspires.ftc.teamcode.config.subsystem.Shooter;
+import org.firstinspires.ftc.robotcore.external.navigation.CurrentUnit;
+
+import java.util.List;
 
 @TeleOp
-
 public class meca extends LinearOpMode {
-    private DcMotor leftFront = null;
-    private DcMotor rightFront = null;
-    private DcMotor leftRear = null;
-    private DcMotor rightRear = null;
 
-    //Other motors
-    private DcMotor inTake = null;
+    // MOTORS
+    private DcMotor leftFront, rightFront, leftRear, rightRear;
+    private DcMotor inTake, insideInTake;
 
-    private DcMotor insideInTake = null;
+    private Shooter shooterSubsystem;
 
-    private DcMotor shooter = null;
+    // POWER CAPS
+    public static double DRIVE_MAX_POWER = 0.6;
+    public static double INTAKE_MAX_POWER = 0.6;
+    public static double INNER_INTAKE_MAX_POWER = 0.5;
 
-
-    //private DcMotor sweeperMotor = null;
-    //private DcMotor extendMotor = null;
+    // HUB
+    private LynxModule hub;
 
     @Override
     public void runOpMode() {
 
-        //declare variables for drive train motors
-        leftFront = hardwareMap.get(DcMotor.class, "leftFront");
+        // Drivetrain
+        leftFront  = hardwareMap.get(DcMotor.class, "leftFront");
         rightFront = hardwareMap.get(DcMotor.class, "rightFront");
-        leftRear = hardwareMap.get(DcMotor.class,  "leftRear");
-        rightRear = hardwareMap.get(DcMotor.class, "rightRear");
+        leftRear   = hardwareMap.get(DcMotor.class, "leftRear");
+        rightRear  = hardwareMap.get(DcMotor.class, "rightRear");
+
+        // Intake
         inTake = hardwareMap.get(DcMotor.class, "inTake");
         insideInTake = hardwareMap.get(DcMotor.class, "insideInTake");
-        shooter = hardwareMap.get(DcMotor.class, "shooter");
 
-        rightFront.setDirection(DcMotor.Direction.REVERSE);
-        rightRear.setDirection(DcMotor.Direction.REVERSE);
+        //Shooter
+        shooterSubsystem = new Shooter(hardwareMap);
 
-        //WHEELS BRAKE
-        rightFront.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        // Directions
+        leftFront.setDirection(DcMotorSimple.Direction.REVERSE);
+        leftRear.setDirection(DcMotorSimple.Direction.REVERSE);
+
         leftFront.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
-        rightRear.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         leftRear.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        rightFront.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        rightRear.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
 
-        //When code is initialized on the phone, telemetry will print
-        telemetry.addData("Status", "Initialized, hi driver");
+        // Hub reference
+        List<LynxModule> hubs = hardwareMap.getAll(LynxModule.class);
+        hub = hubs.get(0); // assume single hub for current telemetry
+
+        telemetry.addData("Status", "Initialized");
         telemetry.update();
 
-        // Wait for the game to start (driver presses PLAY)
         waitForStart();
 
-        // run until the end of the match (driver presses STOP)
         while (opModeIsActive()) {
 
-            //When code is active on the phone, telemetry will print
-            telemetry.addData("Status", "Running");
-            telemetry.update();
-
-            // Set controller input
-            double y = -gamepad1.left_stick_y; // Remember, this is reversed!
-            double x = gamepad1.left_stick_x; // this is strafing
-            double rx = gamepad1.right_stick_x;
-
-            // Denominator is the largest motor power (absolute value) or 1
-            // This ensures all the powers maintain the same ratio, but only when
-            // at least one is out of the range [-1, 1]
+            // DRIVE CONTROL
+            double y  = -gamepad1.left_stick_y;
+            double x  =  gamepad1.left_stick_x;
+            double rx =  gamepad1.right_stick_x;
 
             double denominator = Math.max(Math.abs(y) + Math.abs(x) + Math.abs(rx), 1);
-            double FL_power = (y + x + rx) / denominator;
-            double FR_power = (y - x - rx) / denominator;
-            double BL_power = (y - x + rx) / denominator;
-            double BR_power = (y + x - rx) / denominator;
 
-            // Throttle speed
-            if(gamepad1.right_trigger > 0) {
-                FR_power *= Math.min(1, 1.5 - gamepad1.right_trigger);
-                BR_power *= Math.min(1, 1.5 - gamepad1.right_trigger);
-                FL_power *= Math.min(1, 1.5 - gamepad1.right_trigger);
-                BL_power *= Math.min(1, 1.5 - gamepad1.right_trigger);
+            double FL = (y + x + rx) / denominator;
+            double BL = (y - x + rx) / denominator;
+            double FR = (y - x - rx) / denominator;
+            double BR = (y + x - rx) / denominator;
+
+            leftFront.setPower(cap(FL, DRIVE_MAX_POWER));
+            leftRear.setPower(cap(BL, DRIVE_MAX_POWER));
+            rightFront.setPower(cap(FR, DRIVE_MAX_POWER));
+            rightRear.setPower(cap(BR, DRIVE_MAX_POWER));
+
+            //SHOOTER
+            if (gamepad1.right_bumper) {
+                shooterSubsystem.shootNear();
+                insideInTake.setPower(cap(0.8, INNER_INTAKE_MAX_POWER));
             }
 
-            // Set motor powers
-            // changeing the percenatge of how fast we go
-            rightFront.setPower(FR_power*0.7);
-            rightRear.setPower(BR_power*0.7);
-            leftFront.setPower(FL_power*0.7);
-            leftRear.setPower(BL_power*0.7);
+            if (gamepad1.right_trigger > 0.05) {
+                shooterSubsystem.shootFar();
+                insideInTake.setPower(cap(0.8, INNER_INTAKE_MAX_POWER));
+            }
 
-            if (gamepad1.right_bumper) { //SHOOTER
-                shooter.setPower(0.85);
-                insideInTake.setPower(0.75);
+            if (gamepad1.left_bumper) {
+                shooterSubsystem.off();
                 inTake.setPower(0);
+                insideInTake.setPower(0);
+            }
 
-            } if (gamepad1.left_bumper) { // OFF SHOOTER
-                shooter.setPower(0.01);
-                insideInTake.setPower(0.1);
-            } if (gamepad1.a) { // OFF INTAKE + OFF ROLLER
-                inTake.setPower(0.0);
-                insideInTake.setPower(0.0);
-            } if (gamepad1.y) { // ON BUTTON FOR PCB INTAKE + SLOW ROLLER
-                inTake.setPower(-0.8);
-                insideInTake.setPower(0.2);
+            // INTAKE
+            if (gamepad1.y) {
+                inTake.setPower(cap(-0.6, INTAKE_MAX_POWER));
+                insideInTake.setPower(cap(0.5, INNER_INTAKE_MAX_POWER));
             }
-            if (gamepad1.b) { // HOLD BUTTON FOR INNER ROLLER
-                insideInTake.setPower(0.6);
-            } else {
-                insideInTake.setPower(0.01);
+
+            if (gamepad1.a) {
+                inTake.setPower(0);
+                insideInTake.setPower(0);
             }
+
+            //UPDATE SHOOTER
+            shooterSubsystem.periodic();
+
+            //TELEMETRY
+            telemetry.addData("Shooter Target", shooterSubsystem.getTarget());
+            telemetry.addData("Shooter Velocity", shooterSubsystem.getVelocity());
+
+            telemetry.addData("FL Power", leftFront.getPower());
+            telemetry.addData("FL Power", leftFront.getPower());
+            telemetry.addData("FR Power", rightFront.getPower());
+            telemetry.addData("BL Power", leftRear.getPower());
+            telemetry.addData("BR Power", rightRear.getPower());
+
+            telemetry.addData("Intake Power", inTake.getPower());
+            telemetry.addData("Inner Intake Power", insideInTake.getPower());
+
+            telemetry.addData("Hub Current (A)", String.format("%.2f", hub.getCurrent(CurrentUnit.AMPS)));
+
+            telemetry.update();
         }
+    }
+
+    // POWER CAP
+    private double cap(double power, double max) {
+        return Math.max(-max, Math.min(max, power));
     }
 }

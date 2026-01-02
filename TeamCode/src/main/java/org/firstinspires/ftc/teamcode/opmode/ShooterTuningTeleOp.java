@@ -1,117 +1,60 @@
 package org.firstinspires.ftc.teamcode.opmode;
 
-import com.acmerobotics.dashboard.FtcDashboard;
-import com.acmerobotics.dashboard.telemetry.TelemetryPacket;
-import com.acmerobotics.dashboard.telemetry.MultipleTelemetry;
-import com.bylazar.telemetry.PanelsTelemetry;
-import com.bylazar.telemetry.TelemetryManager;
-import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
+import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.hardware.DcMotor;
-import com.qualcomm.robotcore.hardware.DcMotorEx;
+import org.firstinspires.ftc.teamcode.config.subsystem.Shooter;
 
-import com.pedropathing.control.PIDFCoefficients;
-import com.pedropathing.control.PIDFController;
-
-@TeleOp(name="Shooter Tuner v2", group="Tuning")
+@TeleOp(name = "Shooter Test (Shooter + Intake)", group = "Test")
 public class ShooterTuningTeleOp extends OpMode {
 
-    private DcMotorEx shooterMotor;
-    private DcMotorEx inTakeMotor;
+    private Shooter shooter;
 
-    private DcMotorEx insideInTakeMotor;
-
-
-    private PIDFController boostPID, stablePID;
-
-    // TUNED PIDF coefficients for 2800 RPM target
-    public static double bp = 0.04;
-    public static double bd = 0.0;
-    public static double bf = 0.0;
-
-    // STABLE LOOP (hold RPM)
-    public static double sp = 0.01;
-    public static double sd = 0.1;
-    public static double sf = 0.0;
-
-    public static double pSwitch = 50;  // Switch from boost to stable PID
-
-    private boolean activated = false;
-    public static double targetRPM = 1400;
-
-    TelemetryManager telemetryM;
-    MultipleTelemetry multiTelemetry;
+    private DcMotor inTake;
+    private DcMotor insideInTake;
 
     @Override
     public void init() {
-        shooterMotor = hardwareMap.get(DcMotorEx.class, "shooter");
-        inTakeMotor = (DcMotorEx) hardwareMap.get(DcMotor.class, "inTake");
-        insideInTakeMotor = (DcMotorEx) hardwareMap.get(DcMotor.class, "insideInTake");
-        shooterMotor.setMode(DcMotorEx.RunMode.RUN_USING_ENCODER);
-        shooterMotor.setZeroPowerBehavior(DcMotorEx.ZeroPowerBehavior.FLOAT);
 
-        boostPID = new PIDFController(new PIDFCoefficients(bp, 0, bd, bf));
-        stablePID = new PIDFController(new PIDFCoefficients(sp, 0, sd, sf));
+        shooter = new Shooter(hardwareMap);
 
-        telemetryM = PanelsTelemetry.INSTANCE.getTelemetry();
-        multiTelemetry = new MultipleTelemetry(telemetry, FtcDashboard.getInstance().getTelemetry());
+        inTake = hardwareMap.get(DcMotor.class, "inTake");
+        insideInTake = hardwareMap.get(DcMotor.class, "insideInTake");
+
+        telemetry.addLine("Shooter + Intake Test Ready");
+        telemetry.update();
     }
 
     @Override
     public void loop() {
 
-        // Toggle shooter ON/OFF
-        if (gamepad1.a) activated = true;
-        if (gamepad1.b) activated = false;
+        // ================= SHOOTER CONTROLS =================
+        if (gamepad1.a) shooter.shootNear();
+        if (gamepad1.b) shooter.shootFar();
+        if (gamepad1.x) shooter.off();
 
-        // Adjust target RPM live
-        if (gamepad1.dpad_up) targetRPM += 25;
-        if (gamepad1.dpad_down) targetRPM -= 25;
-        if (targetRPM < 0) targetRPM = 0;
-        if (targetRPM > 5000) targetRPM = 5000;
+        shooter.periodic();
 
-        boostPID.setCoefficients(new PIDFCoefficients(bp, 0, bd, bf));
-        stablePID.setCoefficients(new PIDFCoefficients(sp, 0, sd, sf));
-
-        double velocity = shooterMotor.getVelocity();
-        double error = targetRPM - velocity;
-        double power = 0;
-
-        if (activated) {
-            if (Math.abs(error) > pSwitch) {
-                boostPID.updateError(error);
-                power = boostPID.run();
-                insideInTakeMotor.setPower(0.85);
-                inTakeMotor.setPower(-0.8);
-            } else {
-                stablePID.updateError(error);
-                power = stablePID.run();
-            }
-            shooterMotor.setPower(power);
+        // ================= INTAKE LOGIC =================
+        if (shooter.getTarget() > 0 && shooter.atTarget()) {
+            // Shooter ON → feed rings
+            inTake.setPower(-0.6);
+            insideInTake.setPower(0.6);
+        } else if (shooter.getTarget() > 0) {
+            // Shooter spinning but not at speed yet
+            inTake.setPower(-0.3);
+            insideInTake.setPower(0.3);
         } else {
-            shooterMotor.setPower(0);
-            insideInTakeMotor.setPower(0);
-            inTakeMotor.setPower(0);
+            // Shooter OFF
+            inTake.setPower(0);
+            insideInTake.setPower(0);
         }
 
-        // Telemetry packet for graphs
-        TelemetryPacket packet = new TelemetryPacket();
-        packet.put("Target RPM", targetRPM);
-        packet.put("Velocity RPM", velocity);
-        packet.put("Error", error);
-        packet.put("Shooter Power", power);
-        packet.put("Shooter On", activated);
-
-        packet.put("v_graph", velocity);
-        packet.put("t_graph", targetRPM);
-        packet.put("error_graph", error);
-        FtcDashboard.getInstance().sendTelemetryPacket(packet);
-
-        telemetryM.addData("Shooter On", activated);
-        telemetryM.addData("Target RPM", targetRPM);
-        telemetryM.addData("Velocity RPM", velocity);
-        telemetryM.addData("Error", error);
-        telemetryM.addData("Power", power);
-        telemetryM.update(multiTelemetry);
+        // ================= TELEMETRY =================
+        telemetry.addData("Target RPM", shooter.getTarget());
+        telemetry.addData("Velocity RPM", shooter.getVelocity());
+        telemetry.addData("At Target", shooter.atTarget());
+        telemetry.addData("Shooter Active", shooter.getTarget() > 0);
+        telemetry.update();
     }
 }

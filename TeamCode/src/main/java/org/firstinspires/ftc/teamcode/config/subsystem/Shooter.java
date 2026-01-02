@@ -1,50 +1,35 @@
 package org.firstinspires.ftc.teamcode.config.subsystem;
 
 import com.acmerobotics.dashboard.config.Config;
-import com.bylazar.configurables.annotations.Configurable;
-import com.pedropathing.control.PIDFCoefficients;
-import com.pedropathing.control.PIDFController;
+import com.pedropathing.ivy.commands.Instant;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
-import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.hardware.HardwareMap;
-import com.qualcomm.robotcore.hardware.Servo;
-import com.seattlesolvers.solverslib.command.SubsystemBase;
 
 @Config
-@Configurable
+public class Shooter {
 
-public class Shooter extends SubsystemBase {
-   // private Servo f;
-    private DcMotorEx shooter;//, r;
-    private PIDFController b, s;
+    private DcMotorEx shooter;
 
-    private double t = 0;
+    private double t = 0; // target RPM
+    private double previousError = 0; // for derivative term
+
+    // PIDF TUNING
+    public static double kS = 0.05;       // static feedforward
+    public static double kV = 0.0015;     // velocity feedforward
+    public static double kP = 0.001;      // proportional
+    public static double kD = 0.0002;     // derivative (optional)
+    public static double MAX_POWER = 0.5; // cap
 
     private boolean activated = true;
 
-    public static double bp = 0.00090;
-    public static double bd = 0.00003;
-    public static double bf = 0.0;
+    public static double near = 1500; // RPM for close shot
+    public static double far = 1700;  // RPM for far shot
 
-    public static double sp = 0.00050;
-    public static double sd = 0.000015;
-    public static double sf = 0.0;
-
-    public static double pSwitch = 175;
-
-    public static double close = 1900;
-    public static double far = 2600;
-    public static double flipUp = 0.3;
-    public static double flipDown = 0.71;
-
+    // CONSTRUCTOR
     public Shooter(HardwareMap hardwareMap) {
-        b = new PIDFController(new PIDFCoefficients(bp, 0, bd, bf));
-        s = new PIDFController(new PIDFCoefficients(sp, 0, sd, sf));
         shooter = hardwareMap.get(DcMotorEx.class, "shooter");
-        //r = hardwareMap.get(DcMotorEx.class, "sr");
-        //f = hardwareMap.get(Servo.class, "f");
-        //r.setDirection(DcMotorSimple.Direction.REVERSE);
     }
+
 
     public double getTarget() {
         return t;
@@ -54,9 +39,10 @@ public class Shooter extends SubsystemBase {
         return shooter.getVelocity();
     }
 
+    // POWER CONTROL
     public void setPower(double p) {
-        shooter.setPower(p);
-        //r.setPower(p);
+        double cappedPower = Math.max(-MAX_POWER, Math.min(MAX_POWER, p));
+        shooter.setPower(-cappedPower); // negative if motor is reversed
     }
 
     public void off() {
@@ -68,66 +54,58 @@ public class Shooter extends SubsystemBase {
         activated = true;
     }
 
-    public boolean isActivated() {
-        return activated;
+    public void shooterToggle() {
+        activated = !activated;
+        if (!activated) setPower(0);
     }
 
-    public void far() {
+    public Instant toggle() {
+        return new Instant(this::shooterToggle);
+    }
+
+    public void shootFar() {
         setTarget(far);
         on();
     }
 
-    public void close() {
-        setTarget(close);
+    public void shootNear() {
+        setTarget(near);
         on();
+    }
+
+    public Instant near() {
+        return new Instant(this::shootNear);
+    }
+
+    public Instant far() {
+        return new Instant(this::shootFar);
     }
 
     public void setTarget(double velocity) {
         t = velocity;
     }
 
-    @Override
+    // MAIN LOOP CONTROL
     public void periodic() {
-        b.setCoefficients(new PIDFCoefficients(bp, 0, bd, bf));
-        s.setCoefficients(new PIDFCoefficients(sp, 0, sd, sf));
-
         if (activated) {
-            if (Math.abs(getTarget() - getVelocity()) < pSwitch) {
-                s.updateError(getTarget() - getVelocity());
-                setPower(s.run());
-            } else {
-                b.updateError(getTarget() - getVelocity());
-                setPower(b.run());
-            }
+            double error = getTarget() - getVelocity();
+            double derivative = error - previousError;
+            previousError = error;
+
+            double power = (kV * getTarget()) + (kP * error) + (kD * derivative) + kS;
+            setPower(power);
         }
     }
 
-    public void up() {
-        //f.setPosition(flipUp);
-    }
-
-    public void down() {
-        //f.setPosition(flipDown);
-    }
-
-//    public void flip() {
-//        if (f.getPosition() == flipDown)
-//            up();
-//        else
-//            down();
-//    }
-
     public boolean atTarget() {
-        return Math.abs((getTarget()- getVelocity())) < 50;
+        return Math.abs(getTarget() - getVelocity()) < 50;
     }
 
-    public void forDistance(double distance) {
-        //setTarget((6.13992 * distance) + 858.51272);
-        setTarget((0.00180088*Math.pow(distance, 2))+(4.14265*distance)+948.97358);
+    public void forDistance(double distance, boolean close) {
+        if (close) {
+            setTarget((0.00180088 * Math.pow(distance, 2)) + (4.14265 * distance) + 948.97358);
+        } else {
+            setTarget(1500);
+        }
     }
-
-//    public boolean atUp() {
-//        //return f.getPosition() == flipUp;
-//    }
-
 }
