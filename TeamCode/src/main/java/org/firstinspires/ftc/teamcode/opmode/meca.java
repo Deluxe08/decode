@@ -9,7 +9,9 @@ import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
 import org.firstinspires.ftc.teamcode.config.subsystem.Shooter;
-import com.qualcomm.robotcore.robot.RobotState;
+import com.qualcomm.robotcore.hardware.DistanceSensor;
+import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
+//import com.qualcomm.robotcore.robot.RobotState;
 //import com.qualcomm.robotcore.external.navigation.CurrentUnit;
 
 import java.util.List;
@@ -20,8 +22,11 @@ public class meca extends LinearOpMode {
     // DRIVE MOTORS
     private DcMotor leftFront, rightFront, leftRear, rightRear;
 
+    private DistanceSensor sensorDistance;
+
+
     // INTAKE MOTORS
-    private DcMotor /*inTake ,*/ insideInTake;
+    private DcMotor inTake ,insideInTake;
 
     // SHOOTER
     private Shooter shooterSubsystem;
@@ -32,32 +37,38 @@ public class meca extends LinearOpMode {
 
     // POWER CAPS
     private static final double DRIVE_MAX_POWER = 0.6;
-    private static final double INTAKE_MAX_POWER = 0.6;
-    private static final double INNER_INTAKE_MAX_POWER = 0.5;
+    private static final double INTAKE_MAX_POWER = -0.85;
+    private static final double INNER_INTAKE_MAX_POWER = -0.5;
 
     public static double TICKS_PER_REV = 537.6;
 
-    MultipleTelemetry multiTelemetry;
+    //MultipleTelemetry multiTelemetry;
 
 
     @Override
     public void runOpMode() {
 
-        // -------- HARDWARE INIT --------
+        // HARDWARE INIT
         leftFront  = hardwareMap.get(DcMotor.class, "leftFront");
         rightFront = hardwareMap.get(DcMotor.class, "rightFront");
         leftRear   = hardwareMap.get(DcMotor.class, "leftRear");
         rightRear  = hardwareMap.get(DcMotor.class, "rightRear");
 
-       // inTake = hardwareMap.get(DcMotor.class, "inTake");
+        inTake = hardwareMap.get(DcMotor.class, "inTake");
         insideInTake = hardwareMap.get(DcMotor.class, "insideInTake");
 
         shooterSubsystem = new Shooter(hardwareMap);
         shooterMotor = hardwareMap.get(DcMotorEx.class, "shooter");
 
+        sensorDistance = hardwareMap.get(DistanceSensor.class, "sensor_distance");
+
         // DRIVE DIRECTIONS
         leftFront.setDirection(DcMotorSimple.Direction.REVERSE);
         leftRear.setDirection(DcMotorSimple.Direction.REVERSE);
+
+
+        inTake.setDirection(DcMotorSimple.Direction.REVERSE);
+        //insideInTake.setDirection(DcMotorSimple.Direction.REVERSE);
 
         leftFront.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         leftRear.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
@@ -68,11 +79,11 @@ public class meca extends LinearOpMode {
         leftRear.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
         rightFront.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
         rightRear.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
-
-        multiTelemetry = new MultipleTelemetry(
-                FtcDashboard.getInstance().getTelemetry(),
-                telemetry
-        );
+//
+//        multiTelemetry = new MultipleTelemetry(
+//                FtcDashboard.getInstance().getTelemetry(),
+//                telemetry
+//        );
 
         telemetry.addLine("Drivetrain RPM Telemetry Ready");
         telemetry.update();
@@ -90,7 +101,7 @@ public class meca extends LinearOpMode {
 
             // -------- DRIVE CONTROL --------
             double y  = -gamepad1.left_stick_y;
-            double x  =  gamepad1.left_stick_x* 1.1;
+            double x  =  gamepad1.left_stick_x;
             double rx =  gamepad1.right_stick_x;
 
             double denominator = Math.max(Math.abs(y) + Math.abs(x) + Math.abs(rx), 1);
@@ -105,39 +116,50 @@ public class meca extends LinearOpMode {
             rightFront.setPower(cap(FR, DRIVE_MAX_POWER));
             rightRear.setPower(cap(BR, DRIVE_MAX_POWER));
 
-            if (gamepad1.options) {
-                shooterSubsystem.close();
-                insideInTake.setPower(cap(-0.5, INNER_INTAKE_MAX_POWER));
-               // inTake.setPower(cap(0.0, INTAKE_MAX_POWER));
-            } else if (gamepad1.right_trigger > 0.05) {
+
+            if (gamepad1.right_trigger > 0.05) {
                 shooterSubsystem.far();
-                insideInTake.setPower(cap(-0.5, INNER_INTAKE_MAX_POWER));
-                //inTake.setPower(cap(0.0, INTAKE_MAX_POWER));
             }
+
+            //intake power
+            if (gamepad1.y) {
+                inTake.setPower(-0.75); // set automatic
+            }else if (gamepad1.a) {
+                inTake.setPower(0);
+            }
+
             // -------- SHOOTER CONTROL --------
             if (gamepad1.right_bumper) {
                 shooterSubsystem.close();
-                insideInTake.setPower(cap(-0.5, INNER_INTAKE_MAX_POWER));
-               // inTake.setPower(cap(0.0, INTAKE_MAX_POWER));
+               // insideInTake.setPower(cap(-0.5, INNER_INTAKE_MAX_POWER));
+                //inTake.setPower(cap(-0.85, INTAKE_MAX_POWER));
             } else if (gamepad1.right_trigger > 0.05) {
                 shooterSubsystem.far();
-                insideInTake.setPower(cap(-0.5, INNER_INTAKE_MAX_POWER));
-                //inTake.setPower(cap(0.0, INTnn   AKE_MAX_POWER));
+                //insideInTake.setPower(cap(-0.5, INNER_INTAKE_MAX_POWER));
+                inTake.setPower(cap(-0.85, INTAKE_MAX_POWER));
+            }
+
+            double distanceCM = sensorDistance.getDistance(DistanceUnit.CM);
+            // check if the distance is less than 2 cm
+            // Note: The REV color-range sensor can saturate at ~5cm, returning 5cm for
+            // anything closer. The REV 2m distance sensor is generally better
+            // for short distances.
+            //!Double.isNaN(distanceCM) &&
+            if (distanceCM < 4.0) {
+                gamepad2.rumble(1.0, 1.0, 200); // Max power rumble for 200ms
+            } else {
+                gamepad2.stopRumble();
             }
 
             if (gamepad1.left_bumper) {
                 shooterSubsystem.off();
-                insideInTake.setPower(0);
-                //inTake.setPower(0);
             }
 
-            // -------- INTAKE CONTROL --------
-            if (gamepad1.y) {
-                //inTake.setPower(cap(-0.6, INTAKE_MAX_POWER));
-                insideInTake.setPower(cap(-0.5, INNER_INTAKE_MAX_POWER));
-            } else if (gamepad1.a) {
-                //inTake.setPower(0);
-                insideInTake.setPower(0);
+            if (gamepad1.b) {
+                inTake.setPower(cap(-7.5, INTAKE_MAX_POWER));
+
+            } else {
+                inTake.setPower(0);
             }
 
             // UPDATE SHOOTER LOOP
@@ -149,13 +171,13 @@ public class meca extends LinearOpMode {
             double shooterTarget= shooterSubsystem.getTarget();
             double shooterError = shooterTarget - shooterVel;
 
-            telemetry.addLine("=== SHOOTER INFO ===");
+            telemetry.addLine("SHOOTER INFO");
             telemetry.addData("Target RPM", shooterTarget);
             telemetry.addData("Actual RPM", shooterVel);
             telemetry.addData("Error", shooterError);
             telemetry.addData("Power", shooterPower);
 
-            telemetry.addLine("=== DRIVE POWER ===");
+            telemetry.addLine("DRIVE POWER");
             telemetry.addData("BL", leftRear.getPower());
             telemetry.addData("FR", rightFront.getPower());
             telemetry.addData("BR", rightRear.getPower());
@@ -167,26 +189,10 @@ public class meca extends LinearOpMode {
             telemetry.addData("FR", rightFront.getTargetPosition());
             telemetry.addData("BR", rightRear.getTargetPosition());
 
-            // Velocity telemary
-//            double rfRPM = (rfVel / TICKS_PER_REV) * 60.0;
-//            double lrRPM = (lrVel / TICKS_PER_REV) * 60.0;
-//            double rrRPM = (rrVel / TICKS_PER_REV) * 60.0;
-//
-//            multiTelemetry.addLine("DRIVETRAIN RPM");
-//            multiTelemetry.addData("LF RPM", lfRPM);
-//            multiTelemetry.addData("RF RPM", rfRPM);
-//            multiTelemetry.addData("LR RPM", lrRPM);
-//            multiTelemetry.addData("RR RPM", rrRPM);
-//
-//            multiTelemetry.addLine("VELOCITY (ticks/sec)");
-//            multiTelemetry.addData("LF Vel", lfVel);
-//            multiTelemetry.addData("RF Vel", rfVel);
-//            multiTelemetry.addData("LR Vel", lrVel);
-//            multiTelemetry.addData("RR Vel", rrVel);
+            telemetry.addData("Distance (cm)", "%.02f", distanceCM);
+            telemetry.addData("Status", "Running");
 
-
-
-            telemetry.addLine("=== INTAKE POWER ===");
+            telemetry.addLine("INTAKE POWER");
             //  telemetry.addData("Intake", inTake.getPower());
             telemetry.addData("Inner Intake", insideInTake.getPower());
 
@@ -194,8 +200,26 @@ public class meca extends LinearOpMode {
         }
     }
 
-    // -------- POWER CAP FUNCTION --------
+    // power cap function
     private double cap(double power, double max) {
-        return Math.max(-max, Math.min(max, power));
+        double absPower = Math.abs(power);
+
+        // If the stick is pushed very little, keep it at 0
+        if (absPower < 0.01) {
+            return 0.0001;
+        }
+
+        // Ensure power is at least 0.0059
+        if (absPower < 0.0001) {
+            absPower = 0.0001;
+        }
+
+        // Ensure power does not exceed the max cap
+        if (absPower > max) {
+            absPower = max;
+        }
+
+        // Return the value with the original direction (positive or negative)
+        return Math.copySign(absPower, power);
     }
 }

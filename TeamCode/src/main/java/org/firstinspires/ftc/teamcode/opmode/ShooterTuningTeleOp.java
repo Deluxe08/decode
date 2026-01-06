@@ -3,9 +3,11 @@ package org.firstinspires.ftc.teamcode.opmode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.hardware.DcMotor;
+import com.qualcomm.robotcore.hardware.DcMotorSimple;
+
 import org.firstinspires.ftc.teamcode.config.subsystem.Shooter;
 
-@TeleOp(name = "Shooter Test (Shooter + Intake)", group = "Test")
+@TeleOp(name = "Shooter Test", group = "Test")
 public class ShooterTuningTeleOp extends OpMode {
 
     private Shooter shooter;
@@ -19,7 +21,7 @@ public class ShooterTuningTeleOp extends OpMode {
         shooter = new Shooter(hardwareMap);
 
         inTake = hardwareMap.get(DcMotor.class, "inTake");
-        insideInTake = hardwareMap.get(DcMotor.class, "insideInTake");
+        inTake.setDirection(DcMotorSimple.Direction.REVERSE);
 
         telemetry.addLine("Shooter + Intake Test Ready");
         telemetry.update();
@@ -28,32 +30,17 @@ public class ShooterTuningTeleOp extends OpMode {
     @Override
     public void loop() {
 
-        // ================= SHOOTER CONTROLS =================
+        //  SHOOTER CONTROLS
         if (gamepad1.a) shooter.close();
         if (gamepad1.b) shooter.far();
         if (gamepad1.x) shooter.off();
 
         shooter.periodic();
+        inTake.setPower(-0.6);
 
-        // ================= INTAKE LOGIC =================
-        if (shooter.getTarget() > 0 && shooter.atTarget()) {
-            // Shooter ON → feed rings
-            inTake.setPower(-0.6);
-            insideInTake.setPower(0.6);
-        } else if (shooter.getTarget() > 0) {
-            // Shooter spinning but not at speed yet
-            inTake.setPower(-0.3);
-            insideInTake.setPower(0.3);
-        } else {
-            // Shooter OFF
-            inTake.setPower(0);
-            insideInTake.setPower(0);
-        }
-
-        // ================= TELEMETRY =================
+        // TELEMETRY
         telemetry.addData("Target RPM", shooter.getTarget());
         telemetry.addData("Velocity RPM", shooter.getVelocity());
-        telemetry.addData("At Target", shooter.atTarget());
         telemetry.addData("Shooter Active", shooter.getTarget() > 0);
         telemetry.update();
     }

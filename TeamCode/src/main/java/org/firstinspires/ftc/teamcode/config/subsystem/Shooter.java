@@ -7,7 +7,7 @@ import com.pedropathing.control.PIDFController;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.hardware.HardwareMap;
-import com.qualcomm.robotcore.hardware.Servo;
+import com.qualcomm.robotcore.hardware.Servo   ;
 import com.seattlesolvers.solverslib.command.SubsystemBase;
 
 @Config
@@ -22,13 +22,13 @@ public class Shooter extends SubsystemBase {
     private boolean activated = true;
 
     // ================= PIDF TUNING VALUES =================
-    public static double bp = 0.006;   // boost P
-    public static double bd = 0.00008; // boost D
-    public static double bf = 0.00016666666; // boost F
+    public static double bp = 0.001;   // boost P
+    public static double bd = 0.0005 ; // boost D
+    public static double bf = 0.0; // boost F
 
-    public static double sp = 0.004;   // stable P
-    public static double sd = 0.00004; // stable D
-    public static double sf = 0.00016666666; // stable F
+    public static double sp = 0.09;   // stable P
+    public static double sd = 0.00003; // stable D
+    public static double sf = 0.00; // stable F
 
     public static double pSwitch = 150; // error threshold to switch PID
 
@@ -37,15 +37,12 @@ public class Shooter extends SubsystemBase {
     public static double farRPM = 1400;
 
     // Servo positions (optional)
-    public static double flipUp = 0.3;
-    public static double flipDown = 0.71;
+//    public static double flipUp = 0.3;
+//    public static double flipDown = 0.71;
 
     public Shooter(HardwareMap hardwareMap) {
         shooter = hardwareMap.get(DcMotorEx.class, "shooter");
-        // r = hardwareMap.get(DcMotorEx.class, "sr");
-        // f = hardwareMap.get(Servo.class, "f");
-        // r.setDirection(DcMotorSimple.Direction.REVERSE);
-
+        shooter.setDirection(DcMotorSimple.Direction.REVERSE);
         boostPID = new PIDFController(new PIDFCoefficients(bp, 0, bd, bf));
         stablePID = new PIDFController(new PIDFCoefficients(sp, 0, sd, sf));
     }
@@ -65,10 +62,9 @@ public class Shooter extends SubsystemBase {
 
     // ==================== POWER CONTROL ====================
     public void setPower(double power) {
-        // clamp power to safe range [-1, 1]
-        power = Math.max(-1, Math.min(1, power));
+        // clamp power to safe range [-1, 1] Gobuilda motor heating up
+        power = Math.max(-0.82, Math.min(0.82, power));
         shooter.setPower(power);
-        // r.setPower(power);
     }
 
     public void on() {
@@ -140,7 +136,7 @@ public class Shooter extends SubsystemBase {
 
     // ==================== HELPER FUNCTIONS ====================
     public boolean atTarget() {
-        return Math.abs(getTarget() - getVelocity()) < 50;
+        return Math.abs(getTarget() - getVelocity()) < 30;
     }
 
     public void forDistance(double distance) {
