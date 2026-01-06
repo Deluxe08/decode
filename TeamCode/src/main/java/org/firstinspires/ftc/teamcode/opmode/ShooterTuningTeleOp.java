@@ -29,8 +29,8 @@ public class ShooterTuningTeleOp extends OpMode {
     public void loop() {
 
         // ================= SHOOTER CONTROLS =================
-        if (gamepad1.a) shooter.shootNear();
-        if (gamepad1.b) shooter.shootFar();
+        if (gamepad1.a) shooter.close();
+        if (gamepad1.b) shooter.far();
         if (gamepad1.x) shooter.off();
 
         shooter.periodic();

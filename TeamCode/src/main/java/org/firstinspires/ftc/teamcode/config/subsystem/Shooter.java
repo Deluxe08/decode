@@ -1,48 +1,78 @@
 package org.firstinspires.ftc.teamcode.config.subsystem;
 
 import com.acmerobotics.dashboard.config.Config;
-import com.pedropathing.ivy.commands.Instant;
+import com.bylazar.configurables.annotations.Configurable;
+import com.pedropathing.control.PIDFCoefficients;
+import com.pedropathing.control.PIDFController;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
+import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.hardware.HardwareMap;
+import com.qualcomm.robotcore.hardware.Servo;
+import com.seattlesolvers.solverslib.command.SubsystemBase;
 
 @Config
-public class Shooter {
+@Configurable
+public class Shooter extends SubsystemBase {
 
+    // private Servo f;
     private DcMotorEx shooter;
+    private PIDFController boostPID, stablePID;
 
-    private double t = 0; // target RPM
-    private double previousError = 0; // for derivative term
-
-    // PIDF TUNING
-    public static double kS = 0.05;       // static feedforward
-    public static double kV = 0.0015;     // velocity feedforward
-    public static double kP = 0.001;      // proportional
-    public static double kD = 0.0002;     // derivative (optional)
-    public static double MAX_POWER = 0.5; // cap
-
+    private double targetRPM = 0;
     private boolean activated = true;
 
-    public static double near = 1500; // RPM for close shot
-    public static double far = 1700;  // RPM for far shot
+    // ================= PIDF TUNING VALUES =================
+    public static double bp = 0.006;   // boost P
+    public static double bd = 0.00008; // boost D
+    public static double bf = 0.00016666666; // boost F
 
-    // CONSTRUCTOR
+    public static double sp = 0.004;   // stable P
+    public static double sd = 0.00004; // stable D
+    public static double sf = 0.00016666666; // stable F
+
+    public static double pSwitch = 150; // error threshold to switch PID
+
+    // ================= PRESET RPM VALUES =================
+    public static double closeRPM = 1200;
+    public static double farRPM = 1400;
+
+    // Servo positions (optional)
+    public static double flipUp = 0.3;
+    public static double flipDown = 0.71;
+
     public Shooter(HardwareMap hardwareMap) {
         shooter = hardwareMap.get(DcMotorEx.class, "shooter");
+        // r = hardwareMap.get(DcMotorEx.class, "sr");
+        // f = hardwareMap.get(Servo.class, "f");
+        // r.setDirection(DcMotorSimple.Direction.REVERSE);
+
+        boostPID = new PIDFController(new PIDFCoefficients(bp, 0, bd, bf));
+        stablePID = new PIDFController(new PIDFCoefficients(sp, 0, sd, sf));
     }
 
-
+    // ==================== GETTERS ====================
     public double getTarget() {
-        return t;
+        return targetRPM;
     }
 
     public double getVelocity() {
         return shooter.getVelocity();
     }
 
-    // POWER CONTROL
-    public void setPower(double p) {
-        double cappedPower = Math.max(-MAX_POWER, Math.min(MAX_POWER, p));
-        shooter.setPower(-cappedPower); // negative if motor is reversed
+    public boolean isActivated() {
+        return activated;
+    }
+
+    // ==================== POWER CONTROL ====================
+    public void setPower(double power) {
+        // clamp power to safe range [-1, 1]
+        power = Math.max(-1, Math.min(1, power));
+        shooter.setPower(power);
+        // r.setPower(power);
+    }
+
+    public void on() {
+        activated = true;
     }
 
     public void off() {
@@ -50,62 +80,77 @@ public class Shooter {
         setPower(0);
     }
 
-    public void on() {
-        activated = true;
-    }
-
-    public void shooterToggle() {
-        activated = !activated;
-        if (!activated) setPower(0);
-    }
-
-    public Instant toggle() {
-        return new Instant(this::shooterToggle);
-    }
-
-    public void shootFar() {
-        setTarget(far);
+    // ==================== PRESETS ====================
+    public void close() {
+        setTarget(closeRPM);
         on();
     }
 
-    public void shootNear() {
-        setTarget(near);
+    public void far() {
+        setTarget(farRPM);
         on();
     }
 
-    public Instant near() {
-        return new Instant(this::shootNear);
+    public void setTarget(double rpm) {
+        targetRPM = rpm;
     }
 
-    public Instant far() {
-        return new Instant(this::shootFar);
-    }
-
-    public void setTarget(double velocity) {
-        t = velocity;
-    }
-
-    // MAIN LOOP CONTROL
+    // ==================== PERIODIC PID LOOP ====================
+    @Override
     public void periodic() {
-        if (activated) {
-            double error = getTarget() - getVelocity();
-            double derivative = error - previousError;
-            previousError = error;
+        // Update PID coefficients in case they are changed on the dashboard
+        boostPID.setCoefficients(new PIDFCoefficients(bp, 0, bd, bf));
+        stablePID.setCoefficients(new PIDFCoefficients(sp, 0, sd, sf));
 
-            double power = (kV * getTarget()) + (kP * error) + (kD * derivative) + kS;
-            setPower(power);
+        if (!activated) return;
+
+        double error = getTarget() - getVelocity();
+        double power;
+
+        if (Math.abs(error) < pSwitch) {
+            // Use stable PID for fine control
+            stablePID.updateError(error);
+            power = stablePID.run();
+        } else {
+            // Use boost PID for quick approach
+            boostPID.updateError(error);
+            power = boostPID.run();
         }
+
+        setPower(power);
     }
 
+    // ==================== OPTIONAL SERVOS ====================
+    public void up() {
+        // f.setPosition(flipUp);
+    }
+
+    public void down() {
+        // f.setPosition(flipDown);
+    }
+
+    /*
+    public void flip() {
+        if (f.getPosition() == flipDown)
+            up();
+        else
+            down();
+    }
+    */
+
+    // ==================== HELPER FUNCTIONS ====================
     public boolean atTarget() {
         return Math.abs(getTarget() - getVelocity()) < 50;
     }
 
-    public void forDistance(double distance, boolean close) {
-        if (close) {
-            setTarget((0.00180088 * Math.pow(distance, 2)) + (4.14265 * distance) + 948.97358);
-        } else {
-            setTarget(1500);
-        }
+    public void forDistance(double distance) {
+        // Example quadratic formula for distance → RPM mapping
+        setTarget((0.00180088 * Math.pow(distance, 2)) + (4.14265 * distance) + 948.97358);
     }
+
+    /*
+    public boolean atUp() {
+        return f.getPosition() == flipUp;
+    }
+    */
 }
