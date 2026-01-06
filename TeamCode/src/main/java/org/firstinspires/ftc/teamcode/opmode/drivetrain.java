@@ -14,7 +14,7 @@ public class drivetrain extends LinearOpMode {
     DcMotorEx leftFront, rightFront, leftRear, rightRear;
     MultipleTelemetry multiTelemetry;
 
-    public static double TICKS_PER_REV = 537.6;
+    public static double TICKS_PER_REV = 537.6; // gobuilda 5203
 
     @Override
     public void runOpMode() {

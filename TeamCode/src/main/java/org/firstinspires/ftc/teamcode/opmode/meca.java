@@ -90,7 +90,7 @@ public class meca extends LinearOpMode {
 
             // -------- DRIVE CONTROL --------
             double y  = -gamepad1.left_stick_y;
-            double x  =  gamepad1.left_stick_x;
+            double x  =  gamepad1.left_stick_x* 1.1;
             double rx =  gamepad1.right_stick_x;
 
             double denominator = Math.max(Math.abs(y) + Math.abs(x) + Math.abs(rx), 1);
@@ -122,7 +122,7 @@ public class meca extends LinearOpMode {
             } else if (gamepad1.right_trigger > 0.05) {
                 shooterSubsystem.far();
                 insideInTake.setPower(cap(-0.5, INNER_INTAKE_MAX_POWER));
-                //inTake.setPower(cap(0.0, INTAKE_MAX_POWER));
+                //inTake.setPower(cap(0.0, INTnn   AKE_MAX_POWER));
             }
 
             if (gamepad1.left_bumper) {
