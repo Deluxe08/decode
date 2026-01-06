@@ -28,14 +28,14 @@ public class ShooterTuningTeleOp extends OpMode {
     @Override
     public void loop() {
 
-        // ================= SHOOTER CONTROLS =================
+        //  SHOOTER CONTROLS
         if (gamepad1.a) shooter.close();
         if (gamepad1.b) shooter.far();
         if (gamepad1.x) shooter.off();
 
         shooter.periodic();
 
-        // ================= INTAKE LOGIC =================
+        //  INTAKE LOGIC
         if (shooter.getTarget() > 0 && shooter.atTarget()) {
             // Shooter ON → feed rings
             inTake.setPower(-0.6);
@@ -50,7 +50,7 @@ public class ShooterTuningTeleOp extends OpMode {
             insideInTake.setPower(0);
         }
 
-        // ================= TELEMETRY =================
+        // TELEMETRY
         telemetry.addData("Target RPM", shooter.getTarget());
         telemetry.addData("Velocity RPM", shooter.getVelocity());
         telemetry.addData("At Target", shooter.atTarget());

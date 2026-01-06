@@ -43,7 +43,7 @@ public class meca extends LinearOpMode {
     @Override
     public void runOpMode() {
 
-        // -------- HARDWARE INIT --------
+        // HARDWARE INIT
         leftFront  = hardwareMap.get(DcMotor.class, "leftFront");
         rightFront = hardwareMap.get(DcMotor.class, "rightFront");
         leftRear   = hardwareMap.get(DcMotor.class, "leftRear");
@@ -90,7 +90,7 @@ public class meca extends LinearOpMode {
 
             // -------- DRIVE CONTROL --------
             double y  = -gamepad1.left_stick_y;
-            double x  =  gamepad1.left_stick_x* 1.1;
+            double x  =  gamepad1.left_stick_x;
             double rx =  gamepad1.right_stick_x;
 
             double denominator = Math.max(Math.abs(y) + Math.abs(x) + Math.abs(rx), 1);
@@ -149,13 +149,13 @@ public class meca extends LinearOpMode {
             double shooterTarget= shooterSubsystem.getTarget();
             double shooterError = shooterTarget - shooterVel;
 
-            telemetry.addLine("=== SHOOTER INFO ===");
+            telemetry.addLine("SHOOTER INFO");
             telemetry.addData("Target RPM", shooterTarget);
             telemetry.addData("Actual RPM", shooterVel);
             telemetry.addData("Error", shooterError);
             telemetry.addData("Power", shooterPower);
 
-            telemetry.addLine("=== DRIVE POWER ===");
+            telemetry.addLine("DRIVE POWER");
             telemetry.addData("BL", leftRear.getPower());
             telemetry.addData("FR", rightFront.getPower());
             telemetry.addData("BR", rightRear.getPower());
@@ -186,7 +186,7 @@ public class meca extends LinearOpMode {
 
 
 
-            telemetry.addLine("=== INTAKE POWER ===");
+            telemetry.addLine("INTAKE POWER");
             //  telemetry.addData("Intake", inTake.getPower());
             telemetry.addData("Inner Intake", insideInTake.getPower());
 
@@ -194,8 +194,26 @@ public class meca extends LinearOpMode {
         }
     }
 
-    // -------- POWER CAP FUNCTION --------
+    // power cap function
     private double cap(double power, double max) {
-        return Math.max(-max, Math.min(max, power));
+        double absPower = Math.abs(power);
+
+        // If the stick is pushed very little, keep it at 0
+        if (absPower < 0.01) {
+            return 0;
+        }
+
+        // Ensure power is at least 0.0059
+        if (absPower < 0.0059) {
+            absPower = 0.0059;
+        }
+
+        // Ensure power does not exceed the max cap
+        if (absPower > max) {
+            absPower = max;
+        }
+
+        // Return the value with the original direction (positive or negative)
+        return Math.copySign(absPower, power);
     }
 }
