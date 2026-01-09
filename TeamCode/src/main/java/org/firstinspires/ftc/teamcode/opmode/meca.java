@@ -122,9 +122,9 @@ public class meca extends LinearOpMode {
             }
 
             //intake power
-            if (gamepad1.y) {
+            if (gamepad1.yWasPressed()) {
                 inTake.setPower(-0.75); // set automatic
-            }else if (gamepad1.a) {
+            }else if (gamepad1.aWasPressed()) {
                 inTake.setPower(0);
             }
 
