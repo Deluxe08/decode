@@ -36,7 +36,7 @@ public class meca extends LinearOpMode {
     private LynxModule hub;
 
     // POWER CAPS
-    private static final double DRIVE_MAX_POWER = 0.6;
+    private static final double DRIVE_MAX_POWER = 0.95;
     private static final double INTAKE_MAX_POWER = -0.85;
     private static final double INNER_INTAKE_MAX_POWER = -0.5;
 
@@ -116,15 +116,14 @@ public class meca extends LinearOpMode {
             rightFront.setPower(cap(FR, DRIVE_MAX_POWER));
             rightRear.setPower(cap(BR, DRIVE_MAX_POWER));
 
-
             if (gamepad1.right_trigger > 0.05) {
                 shooterSubsystem.far();
             }
 
             //intake power
             if (gamepad1.yWasPressed()) {
-                inTake.setPower(-0.75); // set automatic
-            }else if (gamepad1.aWasPressed()) {
+                inTake.setPower(cap(-0.85, INTAKE_MAX_POWER)); // set automatic
+            } else if (gamepad1.aWasPressed()) {
                 inTake.setPower(0);
             }
 
@@ -134,9 +133,13 @@ public class meca extends LinearOpMode {
                // insideInTake.setPower(cap(-0.5, INNER_INTAKE_MAX_POWER));
                 //inTake.setPower(cap(-0.85, INTAKE_MAX_POWER));
             } else if (gamepad1.right_trigger > 0.05) {
-                shooterSubsystem.far();
+                //shooterSubsystem.far();
                 //insideInTake.setPower(cap(-0.5, INNER_INTAKE_MAX_POWER));
                 inTake.setPower(cap(-0.85, INTAKE_MAX_POWER));
+            }
+
+            if (gamepad1.x) {
+                shooterSubsystem.off();
             }
 
             double distanceCM = sensorDistance.getDistance(DistanceUnit.CM);
@@ -145,14 +148,10 @@ public class meca extends LinearOpMode {
             // anything closer. The REV 2m distance sensor is generally better
             // for short distances.
             //!Double.isNaN(distanceCM) &&
-            if (distanceCM < 4.0) {
-                gamepad2.rumble(1.0, 1.0, 200); // Max power rumble for 200ms
+            if (distanceCM < 9.0) {
+                gamepad2.rumble(0.5, 0.5, 200); // Max power rumble for 200ms
             } else {
                 gamepad2.stopRumble();
-            }
-
-            if (gamepad1.left_bumper) {
-                shooterSubsystem.off();
             }
 
             if (gamepad1.b) {

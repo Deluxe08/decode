@@ -19,18 +19,18 @@ public class Turret {
     public static double error = 0, power = 0, manualPower = 0;
     public static double rpt = 0.0029919; // single tick enoder value to radians
 
-    public final DcMotorEx m;
+    public final DcMotorEx turret;
     private PIDFController p, s; // pidf controller for turret
-    public static double t = 0; // target for turret
+    public static double tick = 0; // target for turret
     public static double kp = 0.003, kf = 0.0, kd = 0.000, sp = .01, sf = 0, sd = 0.0001;
 
     public static boolean on = true, manual = false;
 
     public Turret(HardwareMap hardwareMap) {
-        m = hardwareMap.get(DcMotorEx.class, "t");
-        m.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+        turret = hardwareMap.get(DcMotorEx.class, "t");
+        turret.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
         //m.setDirection(DcMotor.Direction.REVERSE);
-        m.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
+        turret.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
 
         p = new PIDFController(new PIDFCoefficients(kp, 0, kd, kf));
         s = new PIDFController(new PIDFCoefficients(sp, 0, sd, sf));
@@ -38,27 +38,27 @@ public class Turret {
 
 
     private void setTurretTarget(double ticks) {
-        t = ticks;
+        tick = ticks;
     }
 
     /** ticks */
     public double getTurretTarget() {
-        return t;
+        return tick;
     }
 
     /** ticks */
     private void incrementTurretTarget(double ticks) {
-        t += ticks;
+        tick += ticks;
     }
 
     public double getTurret() {
-        return m.getCurrentPosition();
+        return turret.getCurrentPosition();
     }
 
     public void periodic() {
         if (on) {
             if (manual) {
-                m.setPower(manualPower);
+                turret.setPower(manualPower);
                 return;
             }
             p.setCoefficients(new PIDFCoefficients(kp, 0, kd, kf));
@@ -72,9 +72,9 @@ public class Turret {
                 power = s.run();
             }
 
-            m.setPower(power);
+            turret.setPower(power);
         } else {
-            m.setPower(0);
+            turret.setPower(0);
         }
     }
 
@@ -116,8 +116,8 @@ public class Turret {
     }
 
     public void resetTurret() {
-        m.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
-        m.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+        turret.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+        turret.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
         setTurretTarget(0);
     }
 

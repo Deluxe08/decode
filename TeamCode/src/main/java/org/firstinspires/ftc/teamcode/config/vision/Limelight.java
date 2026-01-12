@@ -11,31 +11,31 @@ import org.firstinspires.ftc.teamcode.config.util.Alliance;
 
 import java.util.List;
 public class Limelight {
-    private Limelight3A l;
+    private Limelight3A limelight;
     private Alliance a;
     private static final int shoot = 0, zone = 1;
     private int pipeline = shoot;
     public Limelight(HardwareMap hardwareMap, Alliance alliance) {
         a = alliance;
-        l = hardwareMap.get(Limelight3A.class, "limelight");
+        limelight = hardwareMap.get(Limelight3A.class, "limelight");
         switchToShoot();
     }
 
     public void start() {
-        l.start();
+        limelight.start();
     }
 
     public void stop() {
-        l.stop();
+        limelight.stop();
     }
 
     public void pause() {
-        l.pause();
+        limelight.pause();
     }
 
     public double distanceFromTag(double tagID) {
         switchToShoot();
-        List<LLResultTypes.FiducialResult> r = l.getLatestResult().getFiducialResults();
+        List<LLResultTypes.FiducialResult> r = limelight.getLatestResult().getFiducialResults();
 
         if (r.isEmpty()) return 0;
 
@@ -69,7 +69,7 @@ public class Limelight {
 
     public double angleFromTag(double tagID) {
         switchToShoot();
-        List<LLResultTypes.FiducialResult> r = l.getLatestResult().getFiducialResults();
+        List<LLResultTypes.FiducialResult> r = limelight.getLatestResult().getFiducialResults();
 
         if (r.isEmpty()) return 0;
 
@@ -105,8 +105,8 @@ public class Limelight {
 
     public void switchToShoot() {
         if (pipeline != shoot)
-            l.pipelineSwitch(shoot);
-        l.setPollRateHz(20);
-        l.start();
+            limelight.pipelineSwitch(shoot);
+        limelight.setPollRateHz(20);
+        limelight.start();
     }
 }

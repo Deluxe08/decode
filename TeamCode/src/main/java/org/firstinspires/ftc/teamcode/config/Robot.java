@@ -16,7 +16,7 @@ public class Robot {
     public final Intake i;
     public final Limelight l;
     public final Shooter s;
-    public final Turret t;
+    public final Turret turret;
     public final Follower f;
     public Alliance a;
 
@@ -32,7 +32,7 @@ public class Robot {
         i = new Intake(h);
         l = new Limelight(h, a);
         s = new Shooter(h);
-        t = new Turret(h);
+        turret = new Turret(h);
         f = Constants.createFollower(h);
 
         hub = h.getAll(LynxModule.class).get(0);
@@ -51,7 +51,7 @@ public class Robot {
         }
 
         f.update();
-        t.periodic();
+        turret.periodic();
         s.periodic();
     }
 

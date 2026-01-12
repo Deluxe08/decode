@@ -36,7 +36,7 @@ public class auto2 extends LinearOpMode {
     private ElapsedTime period  = new ElapsedTime();
     private ElapsedTime     runtime = new ElapsedTime();
 
-    static final double     FORWARD_SPEED = 0.6;
+    static final double     FORWARD_SPEED = 0.5;
     static final double     FASTER_SPEED = 0.8;
     static final double     TURN_SPEED    = 0.5;
     static final double     BackWARD_SPEED = -1.0;
@@ -71,7 +71,7 @@ public class auto2 extends LinearOpMode {
         rightFront.setPower(FORWARD_SPEED);
         leftRear.setPower(FORWARD_SPEED);
         leftFront.setPower(FORWARD_SPEED);
-        shooter.setPower(0.9);
+        //shooter.setPower(0.9);
         runtime.reset();
         while (opModeIsActive() && (runtime.seconds() < 1.5)) {
             telemetry.addData("Path", "command 1: %2.5f S ran", runtime.seconds());
