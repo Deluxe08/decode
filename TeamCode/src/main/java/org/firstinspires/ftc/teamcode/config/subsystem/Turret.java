@@ -1,143 +1,208 @@
+
 package org.firstinspires.ftc.teamcode.config.subsystem;
-
-import com.acmerobotics.dashboard.config.Config;
-import com.pedropathing.control.PIDFCoefficients;
-import com.pedropathing.control.PIDFController;
 import com.pedropathing.geometry.Pose;
-import com.pedropathing.math.MathFunctions;
-import com.qualcomm.robotcore.hardware.DcMotor;
-import com.qualcomm.robotcore.hardware.DcMotorEx;
-import com.qualcomm.robotcore.hardware.DcMotorSimple;
+import com.qualcomm.robotcore.hardware.CRServo;
 import com.qualcomm.robotcore.hardware.HardwareMap;
-import com.seattlesolvers.solverslib.command.Command;
-import com.seattlesolvers.solverslib.command.CommandBase;
-import com.seattlesolvers.solverslib.command.InstantCommand;
-import com.seattlesolvers.solverslib.command.SubsystemBase;
+import com.seattlesolvers.solverslib.hardware.motors.Motor;
+import com.qualcomm.robotcore.hardware.DcMotorSimple;
+import com.qualcomm.robotcore.hardware.DcMotorEx;
+import com.qualcomm.robotcore.hardware.DcMotor;
 
-@Config
 public class Turret {
-    public static double error = 0, power = 0, manualPower = 0;
-    public static double rpt = 0.0029919; // single tick enoder value to radians
+    public DcMotor turretMotor;
+    private static final double TURRET_POWER = 0.45;
 
-    public final DcMotorEx turret;
-    private PIDFController p, s; // pidf controller for turret
-    public static double tick = 0; // target for turret
-    public static double kp = 0.003, kf = 0.0, kd = 0.000, sp = .01, sf = 0, sd = 0.0001;
+    private static final double TURRET_STOP = 0.0;
 
-    public static boolean on = true, manual = false;
+    // Turret Control Constants (Copied from your code)
+    private static final double TURRET_KP = 0.045;
+    private static final double TURRET_KI = 0.002;
+    private static final double TURRET_KD = 0.015;
+    private static final double TURRET_DEADZONE = 0.3;
+    private static final double TURRET_MAX_POWER = 0.7;
+    private static final double TURRET_MIN_POWER = 0.05;
+    private static final double TURRET_MAX_ACCELERATION = 1.5;
+    private static final double FILTER_ALPHA = 0.7;
+    private static final double INTEGRAL_LIMIT = 0.3;
 
-    public Turret(HardwareMap hardwareMap) {
-        turret = hardwareMap.get(DcMotorEx.class, "t");
-        turret.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
-        //m.setDirection(DcMotor.Direction.REVERSE);
-        turret.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
+    // PID State Variables
+    private double lastError = 0.0;
+    private double integralSum = 0.0;
+    private double lastTurretPower = 0.0;
+    private double filteredTx = 0.0;
+    private double lastKnownTurretWorldAngle = 0.0; // The target's angle in field coordinates
+    private Pose lastKnownRobotPose = new Pose(0, 0, 0); // Last pose when target was visible
 
-        p = new PIDFController(new PIDFCoefficients(kp, 0, kd, kf));
-        s = new PIDFController(new PIDFCoefficients(sp, 0, sd, sf));
+    // Prediction/State Variables
+    private boolean trackingLost = true;
+    private double lastTx = 0.0; // Limelight values for the tx and ty
+
+    public Turret (HardwareMap hardwareMap) {
+        turretMotor = hardwareMap.get(DcMotorEx.class, "turretMotor");
+        turretMotor.setPower(0.0); // start stopped
     }
 
-
-    private void setTurretTarget(double ticks) {
-        tick = ticks;
+    public void goLeft() {
+        turretMotor.setPower(-TURRET_POWER); // rotate left
     }
 
-    /** ticks */
-    public double getTurretTarget() {
-        return tick;
+    public void goRight() {
+        turretMotor.setPower(TURRET_POWER); // rotate right
     }
 
-    /** ticks */
-    private void incrementTurretTarget(double ticks) {
-        tick += ticks;
+    public void stopTurret() {
+        turretMotor.setPower(TURRET_STOP); // stop turret
     }
 
-    public double getTurret() {
-        return turret.getCurrentPosition();
+    public void setTurretPower(double power) {
+        turretMotor.setPower(power); // set turret power
     }
 
-    public void periodic() {
-        if (on) {
-            if (manual) {
-                turret.setPower(manualPower);
-                return;
-            }
-            p.setCoefficients(new PIDFCoefficients(kp, 0, kd, kf));
-            s.setCoefficients(new PIDFCoefficients(sp, 0, sd, sf));
-            error = getTurretTarget() - getTurret();
-            if (error > 100) {
-                p.updateError(error);
-                power = p.run();
-            } else {
-                s.updateError(error);
-                power = s.run();
-            }
+    public double calculatePower(double currentTx, boolean isTargetVisible, Pose currentRobotPose, double dt) {
 
-            turret.setPower(power);
+        // 1. Update State and World Angle when target is visible
+        if (isTargetVisible) {
+            // Low-pass filter for smoothing vision data
+            filteredTx = FILTER_ALPHA * currentTx + (1 - FILTER_ALPHA) * filteredTx;
+
+            // Calculate and store the target's angle in FIELD coordinates (World Angle)
+            // World Angle = Robot Heading + Turret Angle (filteredTx is the angle relative to robot)
+            lastKnownTurretWorldAngle = currentRobotPose.getHeading() + Math.toRadians(filteredTx);
+            lastKnownRobotPose = currentRobotPose;
+            trackingLost = false;
         } else {
-            turret.setPower(0);
+            // Target not visible
+            trackingLost = true;
+            // Decay the integral to prevent windup if target is lost for a while
+            integralSum *= 0.95;
         }
+
+        double error;
+
+        // 2. Determine Error Source (Vision vs. Prediction)
+        if (!trackingLost) {
+            // A. VISION MODE: Use filtered vision error
+            error = filteredTx;
+        } else {
+            // B. PREDICTION MODE (Outside FOV Tracking)
+            // Predicted Error = World Target Angle - Current Robot Heading
+            double predictedTurretAngle = lastKnownTurretWorldAngle - currentRobotPose.getHeading();
+
+            // The error is the difference between the predicted turret angle (in degrees) and 0
+            error = Math.toDegrees(predictedTurretAngle);
+        }
+
+        // 3. PID Calculation (Same as your original code, now using 'error')
+
+        // Proportional term
+        double pTerm = TURRET_KP * error;
+
+        // Integral term with anti-windup
+        integralSum += error * dt;
+        integralSum = Math.max(-INTEGRAL_LIMIT, Math.min(INTEGRAL_LIMIT, integralSum));
+        double iTerm = TURRET_KI * integralSum;
+
+        // Derivative term (rate of change of error)
+        double derivative = (error - lastError) / dt;
+        double dTerm = TURRET_KD * derivative;
+
+        // Combine PID terms
+        double turretPower = pTerm + iTerm + dTerm;
+
+        // Apply minimum power threshold
+        if (Math.abs(turretPower) > 0.01 && Math.abs(turretPower) < TURRET_MIN_POWER) {
+            turretPower = Math.signum(turretPower) * TURRET_MIN_POWER;
+        }
+
+        // Clamp to maximum power
+        turretPower = Math.max(-TURRET_MAX_POWER, Math.min(TURRET_MAX_POWER, turretPower));
+
+        // Velocity limiting
+        double powerChange = turretPower - lastTurretPower;
+        if (Math.abs(powerChange) > TURRET_MAX_ACCELERATION * dt) {
+            turretPower = lastTurretPower + Math.signum(powerChange) * TURRET_MAX_ACCELERATION * dt;
+        }
+
+        // Apply deadzone for lock-on (only stop if within the deadzone)
+        if (Math.abs(error) < TURRET_DEADZONE) {
+            turretPower = 0;
+            // Reset integral when locked only in VISION mode, or let it accumulate slowly in PREDICTION
+            if (!trackingLost) integralSum = 0;
+        }
+
+        // Update state for next loop
+        lastError = error;
+        lastTurretPower = turretPower;
+
+        return turretPower;
     }
 
-    public void manual(double power) {
-        manual = true;
-        manualPower = power;
+    /**
+     * Calculates the required power for the turret motor based on a given error
+     * (e.g., from Limelight or Odometry).
+     * This method is a simplified version that relies solely on the provided error,
+     * using the class's internal PID state (integralSum, lastError, etc.).
+     *
+     * @param error The angle error in degrees (input to the PID).
+     * @param dt The time elapsed since the last loop in seconds.
+     * @return The calculated motor power (-TURRET_MAX_POWER to TURRET_MAX_POWER).
+     */
+    public double calculateSimplePIDPower(double error, double dt) {
+        // 1. PID Calculation
+
+        // Proportional term
+        double pTerm = TURRET_KP * error;
+
+        // Integral term with anti-windup
+        integralSum += error * dt;
+        integralSum = Math.max(-INTEGRAL_LIMIT, Math.min(INTEGRAL_LIMIT, integralSum));
+        double iTerm = TURRET_KI * integralSum;
+
+        // Derivative term (rate of change of error)
+        double derivative = (error - lastError) / dt;
+        double dTerm = TURRET_KD * derivative;
+
+        // Combine PID terms
+        double turretPower = pTerm + iTerm + dTerm;
+
+        // 2. Output Limiting and Constraints
+
+        // Apply minimum power threshold to overcome friction
+        if (Math.abs(turretPower) > 0.01 && Math.abs(turretPower) < TURRET_MIN_POWER) {
+            turretPower = Math.signum(turretPower) * TURRET_MIN_POWER;
+        }
+
+        // Clamp to maximum power
+        turretPower = Math.max(-TURRET_MAX_POWER, Math.min(TURRET_MAX_POWER, turretPower));
+
+        // Velocity limiting
+        double powerChange = turretPower - lastTurretPower;
+        if (Math.abs(powerChange) > TURRET_MAX_ACCELERATION * dt) {
+            turretPower = lastTurretPower + Math.signum(powerChange) * TURRET_MAX_ACCELERATION * dt;
+        }
+
+        // Apply deadzone for lock-on
+        if (Math.abs(error) < TURRET_DEADZONE) {
+            turretPower = 0; // Stop if within the diatance of the turret
+            integralSum = 0; // Reset integral when locked
+        }
+
+        // 3. Update State for next loop
+        lastError = error;
+        lastTurretPower = turretPower;
+
+        return turretPower;
     }
 
-    public void automatic() {
-        manual = false;
+    public boolean isTrackingLost() {
+        return trackingLost;
     }
 
-    public void on() {
-        on = true;
+    public double getFilteredTx() {
+        return filteredTx;
     }
 
-    public void off() {
-        on = false;
-    }
-
-    /** Return yaw in radians */
-    public double getYaw() {
-        return normalizeAngle(getTurret() * rpt);
-    }
-
-    public void setYaw(double radians) {
-        radians = normalizeAngle(radians);
-        setTurretTarget(radians/rpt);
-    }
-
-    public void addYaw(double radians) {
-        setYaw(getYaw() + radians);
-    }
-
-    public void face(Pose targetPose, Pose robotPose) {
-        double angleToTargetFromCenter = Math.atan2(targetPose.getY() - robotPose.getY(), targetPose.getX() - robotPose.getX());
-        double robotAngleDiff = normalizeAngle(angleToTargetFromCenter - robotPose.getHeading());
-        setYaw(robotAngleDiff);
-    }
-
-    public void resetTurret() {
-        turret.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
-        turret.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
-        setTurretTarget(0);
-    }
-
-    public InstantCommand reset() {
-        return new InstantCommand(this::resetTurret);
-    }
-
-    public InstantCommand set(double radians) {
-        return new InstantCommand(() -> set(radians));
-
-    }
-
-    public InstantCommand add(double radians) {
-        return new InstantCommand(() -> setYaw(getYaw() + radians));
-    }
-
-    public static double normalizeAngle(double angleRadians) {
-        double angle = angleRadians % (Math.PI * 2D);
-        if (angle <= -Math.PI) angle += Math.PI * 2D;
-        if (angle > Math.PI) angle -= Math.PI * 2D;
-        return angle;
+    public double getLastError() {
+        return lastError;
     }
 }

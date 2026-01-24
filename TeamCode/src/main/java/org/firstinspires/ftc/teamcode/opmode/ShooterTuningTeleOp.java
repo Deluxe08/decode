@@ -26,7 +26,7 @@ public class ShooterTuningTeleOp extends OpMode {
         telemetry.addLine("Shooter + Intake Test Ready");
         telemetry.update();
     }
-
+// Test if shooter is working properly for it's RPM values
     @Override
     public void loop() {
 

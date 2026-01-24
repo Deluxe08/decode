@@ -21,24 +21,20 @@ public class Shooter extends SubsystemBase {
     private double targetRPM = 0;
     private boolean activated = true;
 
-    // ================= PIDF TUNING VALUES =================
+    // PIDF TUNING VALUES
     public static double bp = 0.01;   // boost P
-    public static double bd = 0.0008 ; // boost D
+    public static double bd = 0.0005 ; // boost D
     public static double bf = 0.0; // boost F
 
-    public static double sp = 0.09;   // stable P
-    public static double sd = 0.00003; // stable D
+    public static double sp = 0.9;   // stable P
+    public static double sd = 0.0008; // stable D
     public static double sf = 0.00; // stable F
 
-    public static double pSwitch = 1025; // error threshold to switch PID
+    public static double pSwitch = 100; // error threshold to switch PID
 
-    // ================= PRESET RPM VALUES =================
-    public static double closeRPM = 1150;
+    //PRESET RPM VALUES
+    public static double closeRPM = 1240;
     public static double farRPM = 1400;
-
-    // Servo positions (optional)
-//    public static double flipUp = 0.3;
-//    public static double flipDown = 0.71;
 
     public Shooter(HardwareMap hardwareMap) {
         shooter = hardwareMap.get(DcMotorEx.class, "shooter");
@@ -47,7 +43,7 @@ public class Shooter extends SubsystemBase {
         stablePID = new PIDFController(new PIDFCoefficients(sp, 0, sd, sf));
     }
 
-    // ==================== GETTERS ====================
+    // get each tune tuning value
     public double getTarget() {
         return targetRPM;
     }
@@ -60,7 +56,7 @@ public class Shooter extends SubsystemBase {
         return activated;
     }
 
-    // ==================== POWER CONTROL ====================
+    // POWER CONTROL
     public void setPower(double power) {
         // clamp power to safe range [-1, 1] Gobuilda motor heating up
         power = Math.max(-0.82, Math.min(0.82, power));
@@ -76,7 +72,7 @@ public class Shooter extends SubsystemBase {
         setPower(0);
     }
 
-    // ==================== PRESETS ====================
+    // RPM CONTROL
     public void close() {
         setTarget(closeRPM);
         on();
@@ -91,7 +87,7 @@ public class Shooter extends SubsystemBase {
         targetRPM = rpm;
     }
 
-    // ==================== PERIODIC PID LOOP ====================
+    // PERIODIC PID LOOP
     @Override
     public void periodic() {
         // Update PID coefficients in case they are changed on the dashboard
@@ -116,7 +112,7 @@ public class Shooter extends SubsystemBase {
         setPower(power);
     }
 
-    // ==================== OPTIONAL SERVOS ====================
+    // OPTIONAL SERVOS
     public void up() {
         // f.setPosition(flipUp);
     }
@@ -134,7 +130,7 @@ public class Shooter extends SubsystemBase {
     }
     */
 
-    // ==================== HELPER FUNCTIONS ====================
+    // HELPER FUNCTION
     public boolean atTarget() {
         return Math.abs(getTarget() - getVelocity()) < 30;
     }

@@ -24,8 +24,6 @@ import org.firstinspires.ftc.robotcore.external.navigation.YawPitchRollAngles;
  * detection it homes in on. Commented out are the additions of mecanum drive, which can be
  * uncommented or swapped out for different drive or autonomous movement.
  *
- * @author Tomas Roth - 11139 Knight Owls
- * @version 1.0, 9/18/2025
  */
 
 

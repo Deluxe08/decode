@@ -1,0 +1,239 @@
+
+package org.firstinspires.ftc.teamcode.opmode;
+import com.qualcomm.robotcore.eventloop.opmode.OpMode;
+import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
+import com.pedropathing.follower.Follower;
+import com.pedropathing.geometry.Pose;
+// org.firstinspires.ftc.teamcode.pedroPathing.Constants;
+
+import com.pedropathing.util.Timer;
+
+import org.firstinspires.ftc.teamcode.config.Robot;
+import org.firstinspires.ftc.teamcode.config.Limelight.Vision;
+import org.firstinspires.ftc.teamcode.config.pedro.Constants;
+import org.firstinspires.ftc.teamcode.config.subsystem.Turret;
+import org.firstinspires.ftc.teamcode.config.subsystem.Shooter;
+import org.firstinspires.ftc.teamcode.config.subsystem.TurretTracker;
+
+
+@TeleOp(name = "RobotTeleop", group = "Competition")
+public class RobotTeleop extends OpMode {
+    private Timer timer;
+    private Timer rapidTimer;
+
+    private Follower follower;
+    private Robot robot;
+
+    private Vision vision;
+    private TurretTracker turretTracker;
+    private static final double DEAD_ZONE = 0.1;
+    private static final double TURRET_DEADZONE = 0.3; // Tighter alignment threshold
+
+    private final Pose startPose = new Pose(0, 0, 0);
+
+    private Pose currentPose = new Pose(0,0,0);
+
+    private boolean is_RapidFireOn = false;
+    private boolean targetTracking_enabled = true;
+
+    private String currentAlliance = "RED";
+
+
+    @Override
+    public void init() {
+
+        timer = new Timer();
+        rapidTimer = new Timer();
+        follower = Constants.createFollower(hardwareMap);
+        follower.setStartingPose(startPose);
+        follower.startTeleopDrive();
+        robot = new Robot(hardwareMap, telemetry);
+        if(gamepad1.y) { // if pressed y then switch to blue
+            Robot.current_pipeline_id = Robot.PIPELINE_ID_BLUE;
+            Robot.current_tag_id = Robot.BLUE_TARGET_TAG_ID;
+            currentAlliance = "BLUE";
+        }
+        else{
+            Robot.current_pipeline_id = Robot.PIPELINE_ID_RED;
+            Robot.current_tag_id = Robot.RED_TARGET_TAG_ID;
+        }
+//        turretTracker = new TurretTracker(robot);
+        vision = new Vision(hardwareMap, robot);
+        telemetry.addData("Current Alliance: ", currentAlliance);
+        telemetry.addLine("RobotTeleop Initialized (CRServo turret)");
+        telemetry.update();
+    }
+
+    @Override
+    public void start() {
+        timer.resetTimer();
+        follower.startTeleopDrive();
+        follower.setMaxPower(1.0);
+    }
+
+//    private boolean is_CloseShot() {return gamepad2.b; }
+
+    private boolean is_FarShot() {
+        return gamepad2.x;
+    }
+
+    private boolean is_Intaking() {
+        return gamepad2.left_bumper;
+    }
+
+    private boolean is_Shooting() {
+        return gamepad2.right_bumper;
+    }
+
+    private boolean is_HumanPlayer() {
+        return gamepad1.a;
+    }
+
+    private boolean is_FlywheelOff() {
+        return gamepad2.a;
+    }
+
+//    private boolean is_TurretLeft() {
+//        return gamepad2.dpad_left;
+//    }
+//
+//    private boolean is_TurretRight() {
+//        return gamepad2.dpad_right;
+//    }
+
+    private boolean is_ShootingRapidFireCloseRange() {return gamepad2.b;}
+
+    private boolean is_ShootingRapidFireMidRange() {
+        return gamepad2.y;
+    }
+
+
+
+    @Override
+    public void loop() {
+
+        double xInput = Math.abs(gamepad1.left_stick_x) > DEAD_ZONE ? -gamepad1.left_stick_x : 0;
+        double yInput = Math.abs(gamepad1.left_stick_y) > DEAD_ZONE ? -gamepad1.left_stick_y : 0;
+        // NOTE: rotation is negated to match PedroPathing's TeleOp example (prevents reversed/odd rotation behavior)
+        double turnInput = Math.abs(gamepad1.right_stick_x) > DEAD_ZONE ? -gamepad1.right_stick_x : 0;
+
+        double powerScale = gamepad1.right_trigger > 0.5 ? 0.25 : 1.0;
+
+        follower.updateErrors();
+        follower.updateVectors();
+        follower.setTeleOpDrive(
+                yInput * powerScale,  // forward/backward
+                xInput * powerScale,  // strafe
+                turnInput * powerScale, // rotation (negated)
+                true                     // robot-centric
+        );
+
+        follower.update();
+        if (targetTracking_enabled) {
+            vision.update();
+        }
+
+//        if (is_FarShot()) {
+//            robot.shooter.startFarShoot();
+//        } else if (is_ShootingRapidFireCloseRange()) {
+//            robot.shooter.startCloseShoot();
+//        } else if (is_HumanPlayer()) {
+//            robot.shooter.startHumanIntake();
+//        } else if (is_FlywheelOff()){
+//            robot.shooter.stopShoot();
+//        }
+
+//        if (is_Intaking()) {
+//            robot.intake.startIntakeOnly();
+//        } else {
+//            robot.intake.stopIntake();
+//        }
+
+//        if (is_ShootingRapidFireMidRange() && !is_RapidFireOn) {
+//            is_RapidFireOn = true;
+//            robot.shooter.startMidShoot();
+//            rapidTimer.resetTimer();
+//        }
+        if (is_RapidFireOn) {
+            if (robot.turret.isTrackingLost()){
+                gamepad1.rumble(1000);
+                gamepad2.rumble(1000);
+            }
+//            if (rapidTimer.getElapsedTime() >= 5750) {
+//                robot.shooter.stopFlyWheel();
+//                robot.intake.intakeStop();
+//                robot.intake.stopTransfer();
+//                is_RapidFireOn = false;
+//            }
+//        } else {
+//            if (is_Shooting()) {
+//                if (robot.shooter.reachedSpeed()) {
+//                    robot.intake.startTransferOnly();
+//                    gamepad1.rumble(1000);
+//                    gamepad2.rumble(1000);
+//                }
+//            } else {
+//                robot.intake.stopTransfer();
+//            }
+//        }
+//
+//        if (is_ShootingRapidFireCloseRange() && !is_RapidFireOn) {
+//            is_RapidFireOn = true;
+//            robot.shooter.startCloseShoot();
+//            rapidTimer.resetTimer();
+//        }
+//        if (is_RapidFireOn) {
+//            if (robot.shooter.reachedSpeed()) {
+//                robot.intake.shootArtifacts();
+//                gamepad1.rumble(1000);
+//                gamepad2.rumble(1000);
+//            }
+//            if (rapidTimer.getElapsedTime() >= 5750) {
+//                robot.shooter.stopFlyWheel();
+//                robot.intake.intakeStop();
+//                robot.intake.stopTransfer();
+//                is_RapidFireOn = false;
+//            }
+//        } else {
+//            if (is_Shooting()) {
+//                if (robot.shooter.reachedSpeed()) {
+//                    robot.intake.startTransferOnly();
+//                    gamepad1.rumble(1000);
+//                    gamepad2.rumble(1000);
+//                }
+//            } else {
+//                robot.intake.stopTransfer();
+//            }
+        }
+
+
+        // Turret control (fixed: check gamepad2 on both dpad sides)
+        if (gamepad2.dpad_right && !gamepad2.dpad_left) {
+            robot.turret.goRight(); // rotate right
+        } else if (gamepad2.dpad_left && !gamepad2.dpad_right) {
+            robot.turret.goLeft(); // rotate left
+        } else {
+            robot.turret.stopTurret();
+        }
+
+        currentPose = follower.getPose();
+        //robot.shooter.shooterLightUpdate();
+        telemetry.addData("Current Alliance: ", currentAlliance);
+        telemetry.addData("Rapid Fire On: ", is_RapidFireOn);
+        telemetry.addData("Drive X", xInput);
+        telemetry.addData("Drive Y", yInput);
+        telemetry.addData("Turn", turnInput);
+        //telemetry.addData("Turret Power", turretCR.getPower());
+        telemetry.addData("Pose X", follower.getPose().getX());
+        telemetry.addData("Pose Y", follower.getPose().getY());
+        telemetry.addData("Heading (deg)", Math.toDegrees(follower.getPose().getHeading()));
+        telemetry.update();
+    }
+
+    @Override
+    public void stop() {
+//        robot.shooter.stopShoot();
+//        robot.intake.stopIntake();
+//        robot.intake.stopTransfer();
+    }
+}
