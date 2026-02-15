@@ -10,6 +10,7 @@ import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.DistanceSensor;
 import com.qualcomm.robotcore.hardware.Servo;
+import com.seattlesolvers.solverslib.command.Command;
 
 // shooter subsystem wrapper (PID / velocity control)
 import org.firstinspires.ftc.teamcode.config.subsystem.Shooter;
@@ -121,12 +122,20 @@ public class meca extends LinearOpMode {
             double BL = (y - x + rx) / denominator;
             double FR = (y - x - rx) / denominator;
             double BR = (y + x - rx) / denominator;
+            // Throttle speed
+//            if(gamepad1.right_trigger > 0) {
+//                FR*= Math.min(1, 1.5 - gamepad1.right_trigger);
+//                BR*= Math.min(1, 1.5 - gamepad1.right_trigger);
+//                FL*= Math.min(1, 1.5 - gamepad1.right_trigger);
+//                BL*= Math.min(1, 1.5 - gamepad1.right_trigger);
+//            }
 
-            // apply capped power to each motor
-            leftFront.setPower(cap(FL, DRIVE_MAX_POWER));
-            leftRear.setPower(cap(BL, DRIVE_MAX_POWER));
-            rightFront.setPower(cap(FR, DRIVE_MAX_POWER));
-            rightRear.setPower(cap(BR, DRIVE_MAX_POWER));
+            // Set motor powers
+            // changeing the percenatge of how fast we go
+            rightFront.setPower(FR*0.95);
+            rightRear.setPower(BR*0.95);
+            leftFront.setPower(FL*0.95);
+            leftRear.setPower(BL*0.95);
 
             // SHOOTER
             // close-range shot when B is pressed
@@ -175,13 +184,13 @@ public class meca extends LinearOpMode {
             // dpad up moves servos to shooting position
             if (gamepad2.dpad_up) {
                 rightLimit.setPosition(0.5); // right side position
-                leftLimit.setPosition(0.29); // left side position
+                leftLimit.setPosition(0.5); // left side position
             }
 
             // dpad down moves the servos down
             if (gamepad2.dpad_down){
-                rightLimit.setPosition(0.1); //2
-                leftLimit.setPosition(0.1); //1
+                rightLimit.setPosition(0.25); //2 new servo (longer one)
+                leftLimit.setPosition(0.2); //1
             }
 
             // SAVE BUTTON STATES
@@ -205,18 +214,17 @@ public class meca extends LinearOpMode {
             telemetry.addData("Hold In (B)", holdIn);
             telemetry.addData("Hold Out (X)", holdOut);
             telemetry.addData("Toggled In (A)", intakeToggledOn);
-
             // shooter telemetry values
             double shooterPower = shooterMotor.getPower();
-            double shooterVel   = shooterSubsystem.getVelocity();
-            double shooterTarget= shooterSubsystem.getTarget();
-            double shooterError = shooterTarget - shooterVel;
+            double shooterTarget = shooterSubsystem.getTarget();
+
+            //double shooterError = shooterTarget - shooterVel;
 
             telemetry.addLine("SHOOTER INFO");
             telemetry.addData("Target RPM", shooterTarget);
-            telemetry.addData("Actual RPM", shooterVel);
-            telemetry.addData("Error", shooterError);
             telemetry.addData("Power", shooterPower);
+
+//            telemetry.addData("go",leftFront.getCurrentPosition());
 
             // drive motor powers
             telemetry.addLine("DRIVE POWER");
@@ -225,11 +233,13 @@ public class meca extends LinearOpMode {
             telemetry.addData("BR", rightRear.getPower());
             telemetry.addData("FL", leftFront.getPower());
 
-            // encoder target positions
-            telemetry.addData("FL", leftFront.getTargetPosition());
-            telemetry.addData("BL", leftRear.getTargetPosition());
-            telemetry.addData("FR", rightFront.getTargetPosition());
-            telemetry.addData("BR", rightRear.getTargetPosition());
+//            telemetry.addData("FL", leftFront.());
+
+//            // encoder target positions
+//            telemetry.addData("FL", leftFront.getTargetPosition());
+//            telemetry.addData("BL", leftRear.getTargetPosition());
+//            telemetry.addData("FR", rightFront.getTargetPosition());
+//            telemetry.addData("BR", rightRear.getTargetPosition());
 
             // distance sensor readout
             telemetry.addData("Distance (cm)", "%.02f", distanceCM);
@@ -240,7 +250,7 @@ public class meca extends LinearOpMode {
     }
 
     // caps motor power so it never exceeds the specified max
-    private double cap(double power, double max) {
-        return Math.max(-max, Math.min(max, power));
-    }
+//    private double cap(double power, double max) {
+//        return Math.max(-max, Math.min(max, power));
+//    }
 }

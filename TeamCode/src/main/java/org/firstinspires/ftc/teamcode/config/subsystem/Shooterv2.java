@@ -12,11 +12,10 @@ import com.seattlesolvers.solverslib.command.SubsystemBase;
 
 @Config
 
-public class Shooter extends SubsystemBase {
+public class Shooterv2 extends SubsystemBase {
 
     // private Servo f;
-    private DcMotorEx shooter;
-    //private DcMotorEx shooter2;
+    private DcMotorEx shooter2;
     private PIDFController boostPID, stablePID;
 
     private double targetRPM = 0;
@@ -29,7 +28,7 @@ public class Shooter extends SubsystemBase {
 
     public static double sp = 0.08;   // stable P
     public static double sd = 0.0; // stable D
-    public static double sf = 0.008; // stable F
+    public static double sf = 0.08; // stable F
 
     public static double pSwitch = 120; // error threshold to switch PID
 
@@ -37,20 +36,20 @@ public class Shooter extends SubsystemBase {
     public static double closeRPM = 1800;
     public static double farRPM = 5000;
 
-    public Shooter(HardwareMap hardwareMap) {
-        shooter = hardwareMap.get(DcMotorEx.class, "shooter");
-       // shooter.setDirection(DcMotorSimple.Direction.REVERSE);
+    public Shooterv2(HardwareMap hardwareMap) {
+        shooter2 = hardwareMap.get(DcMotorEx.class, "shooter2");
+        shooter2.setDirection(DcMotorSimple.Direction.REVERSE);
         boostPID = new PIDFController(new PIDFCoefficients(bp, 0, bd, bf));
         stablePID = new PIDFController(new PIDFCoefficients(sp, 0, sd, sf));
     }
-    //hi
+
     // get each tune tuning value
     public double getTarget() {
         return targetRPM;
     }
 
     public double getVelocity() {
-        return shooter.getVelocity();
+        return shooter2.getVelocity();
     }
 
     public boolean isActivated() {
@@ -61,7 +60,7 @@ public class Shooter extends SubsystemBase {
     public void setPower(double power) {
         // clamp power to safe range [-1, 1] Gobuilda motor heating up
         power = Math.max(-0.88, Math.min(0.88, power));
-        shooter.setPower(power);
+        shooter2.setPower(power);
     }
 
     public void on() {

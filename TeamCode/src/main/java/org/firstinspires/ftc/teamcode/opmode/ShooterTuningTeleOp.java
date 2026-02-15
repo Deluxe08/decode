@@ -40,7 +40,7 @@ public class ShooterTuningTeleOp extends OpMode {
 
         // TELEMETRY
         telemetry.addData("Target RPM", shooter.getTarget());
-        telemetry.addData("Velocity RPM", shooter.getVelocity());
+        //telemetry.addData("Velocity RPM", shooter.getVelocity());
         telemetry.addData("Shooter Active", shooter.getTarget() > 0);
         telemetry.update();
     }
