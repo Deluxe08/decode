@@ -126,8 +126,10 @@ public class meca2 extends LinearOpMode {
             if (gamepad1.x) {
                 shooterSubsystem.off();
                 shooterSubsystem2.off();
-            }
+//                leftInTake.setPower(0);
+//                rightInTake.setPower(0);
 
+            }
 
             // A → toggle intake IN
             if (gamepad1.a && !lastA) {
@@ -152,6 +154,8 @@ public class meca2 extends LinearOpMode {
             if (holdOut) {
                 leftInTake.setPower(INTAKE_OUT_POWER);
                 rightInTake.setPower(INTAKE_OUT_POWER);
+                leftInTake.setPower(0);
+                rightInTake.setPower(0);
             } else if (holdIn) {
                 leftInTake.setPower(INTAKE_IN_POWER);
                 rightInTake.setPower(INTAKE_IN_POWER);
@@ -166,11 +170,11 @@ public class meca2 extends LinearOpMode {
             // SERVO COMMMANDS -----------------
 
             if (gamepad2.dpad_up) {
-                rightLimit.setPosition(0.5); // right side position
+                rightLimit.setPosition(0.3); // right side position
                 leftLimit.setPosition(0.29); // left side position
             }
 
-            // dpad down moves the servos down
+            // dpad down moves the servos downn
             if (gamepad2.dpad_down){
                 rightLimit.setPosition(0.1); //2
                 leftLimit.setPosition(0.0); //1
