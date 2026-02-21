@@ -7,62 +7,53 @@ import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.DistanceSensor;
 import com.qualcomm.robotcore.hardware.Servo;
+import com.qualcomm.robotcore.util.Range;
 
-import org.firstinspires.ftc.robotcore.external.Telemetry;
-import org.firstinspires.ftc.robotcore.external.navigation.CurrentUnit;
-import org.firstinspires.ftc.teamcode.config.subsystem.Shooter;
 import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
+import org.firstinspires.ftc.teamcode.config.subsystem.Shooter;
 import org.firstinspires.ftc.teamcode.config.subsystem.Shooterv2;
 
 @TeleOp
 public class meca2 extends LinearOpMode {
 
-    // DRIVE
     private DcMotor leftFront, rightFront, leftRear, rightRear;
-
-    private Servo limit;
-
-    // INTAKE
     private DcMotor leftInTake, rightInTake;
-
-    private Servo leftLimit, rightLimit;
-
-    // SHOOTER
+    private Servo leftLimit, rightLimit, angleServo;
     private Shooter shooterSubsystem;
     private Shooterv2 shooterSubsystem2;
-
-    private DcMotorEx shooterMotor,shooterMotor2;
-
-    // SENSOR
+    private DcMotorEx shooterMotor, shooterMotor2;
     private DistanceSensor sensorDistance;
 
-    // POWER CAPS
     private static final double DRIVE_MAX_POWER = 1;
     private static final double INTAKE_IN_POWER  = -0.85;
-    private static final double INTAKE_OUT_POWER =  1;
+    private static final double INTAKE_OUT_POWER = 1;
 
-    // INTAKE STATE 
     private boolean intakeToggledOn = false;
-
-    // BUTTON EDGE MEMORY
     private boolean lastA = false;
     private boolean lastY = false;
+    private boolean lastX = false;
+    private boolean lastB = false;
+
+    private double servoPosition = 0.1; // starting position
+    private static final double INCREMENT = 0.05;
+    private static final double SERVO_MIN = 0.2;
+    private static final double SERVO_MAX = 0.8;
 
     @Override
     public void runOpMode() {
 
-        // HARDWARE
+        // Hardware
         leftFront  = hardwareMap.get(DcMotor.class, "leftFront");
         rightFront = hardwareMap.get(DcMotor.class, "rightFront");
         leftRear   = hardwareMap.get(DcMotor.class, "leftRear");
         rightRear  = hardwareMap.get(DcMotor.class, "rightRear");
 
-        // in take
         leftInTake = hardwareMap.get(DcMotor.class, "leftInTake");
         rightInTake = hardwareMap.get(DcMotor.class, "rightInTake");
 
         leftLimit = hardwareMap.get(Servo.class, "leftLimit");
         rightLimit = hardwareMap.get(Servo.class, "rightLimit");
+        angleServo = hardwareMap.get(Servo.class, "angleServo");
 
         shooterSubsystem = new Shooter(hardwareMap);
         shooterMotor = hardwareMap.get(DcMotorEx.class, "shooter");
@@ -72,14 +63,18 @@ public class meca2 extends LinearOpMode {
 
         sensorDistance = hardwareMap.get(DistanceSensor.class, "sensor_distance");
 
-        // DIRECTIONS
+        // Directions
         leftFront.setDirection(DcMotorSimple.Direction.REVERSE);
         leftRear.setDirection(DcMotorSimple.Direction.REVERSE);
         leftInTake.setDirection(DcMotorSimple.Direction.REVERSE);
-        // reveresed
-        //rightInTake.setDirection(DcMotorSimple.Direction);
 
+        // Intake encoder setup
+        leftInTake.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+        leftInTake.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+        rightInTake.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+        rightInTake.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
 
+        // Drive braking
         leftFront.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         leftRear.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         rightFront.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
@@ -92,12 +87,12 @@ public class meca2 extends LinearOpMode {
 
         while (opModeIsActive()) {
 
+            // Drive
             double y = -gamepad1.left_stick_y;
             double x = gamepad1.left_stick_x;
             double rx = gamepad1.right_stick_x;
 
             double denominator = Math.max(Math.abs(y) + Math.abs(x) + Math.abs(rx), 1);
-
             double FL = (y + x + rx) / denominator;
             double BL = (y - x + rx) / denominator;
             double FR = (y - x - rx) / denominator;
@@ -108,32 +103,10 @@ public class meca2 extends LinearOpMode {
             rightFront.setPower(cap(FR, DRIVE_MAX_POWER));
             rightRear.setPower(cap(BR, DRIVE_MAX_POWER));
 
-            // ---------------- SHOOTER ----------------
-//            if (gamepad1.b) shooterSubsystem.close();
-           // if (gamepad1.right_trigger > 0.05) shooterSubsystem.far();
-//            if (gamepad1.x) shooterSubsystem.off();
-
-            // shooterSubsystem.periodic();
-
-            // ---------------- INTAKE LOGIC ----------------
+            // Shooter
             if (gamepad1.right_trigger > 0.05) {
                 shooterSubsystem.far();
                 shooterSubsystem2.far();
-            }
-//            shooterSubsystem.periodic();
-//            shooterSubsystem2.periodic();
-
-            if (gamepad1.x) {
-                shooterSubsystem.off();
-                shooterSubsystem2.off();
-//                leftInTake.setPower(0);
-//                rightInTake.setPower(0);
-
-            }
-
-            // A → toggle intake IN
-            if (gamepad1.a && !lastA) {
-                intakeToggledOn = true;
             }
             if (gamepad1.b) {
                 shooterSubsystem.close();
@@ -142,24 +115,22 @@ public class meca2 extends LinearOpMode {
             shooterSubsystem.periodic();
             shooterSubsystem2.periodic();
 
-            // Y → stop intake
-            if (gamepad1.y && !lastY) {
-                intakeToggledOn = false;
+            if (gamepad1.x) {
+                shooterSubsystem.off();
+                shooterSubsystem2.off();
             }
 
-            boolean holdOut = gamepad1.left_bumper; // spit out
-            boolean holdIn  = gamepad1.right_bumper; // intake in (HOLD)
+            // Intake toggle
+            if (gamepad1.a && !lastA) intakeToggledOn = true;
+            if (gamepad1.y && !lastY) intakeToggledOn = false;
 
-            // FINAL INTAKE DECISION (PRIORITY-BASED)
+            boolean holdOut = gamepad1.left_bumper;
+            boolean holdIn  = gamepad1.right_bumper;
+
             if (holdOut) {
                 leftInTake.setPower(INTAKE_OUT_POWER);
                 rightInTake.setPower(INTAKE_OUT_POWER);
-                leftInTake.setPower(0);
-                rightInTake.setPower(0);
-            } else if (holdIn) {
-                leftInTake.setPower(INTAKE_IN_POWER);
-                rightInTake.setPower(INTAKE_IN_POWER);
-            } else if (intakeToggledOn) {
+            } else if (holdIn || intakeToggledOn) {
                 leftInTake.setPower(INTAKE_IN_POWER);
                 rightInTake.setPower(INTAKE_IN_POWER);
             } else {
@@ -167,45 +138,49 @@ public class meca2 extends LinearOpMode {
                 rightInTake.setPower(0);
             }
 
-            // SERVO COMMMANDS -----------------
+            // Limit servos
+            if (gamepad2.dpad_up) rightLimit.setPosition(0.3);
+            if (gamepad2.dpad_down) rightLimit.setPosition(0.1);
 
-            if (gamepad2.dpad_up) {
-                rightLimit.setPosition(0.3); // right side position
-                leftLimit.setPosition(0.29); // left side position
+            // Direct button servo positions
+            if (gamepad2.y) servoPosition = 0.2;
+            if (gamepad2.a) servoPosition = 0.8;
+
+            // Incremental control: X increases, B decreases
+            if (gamepad2.x && !lastX) {
+                servoPosition += INCREMENT;
+            }
+            if (gamepad2.b && !lastB) {
+                servoPosition -= INCREMENT;
             }
 
-            // dpad down moves the servos downn
-            if (gamepad2.dpad_down){
-                rightLimit.setPosition(0.1); //2
-                leftLimit.setPosition(0.0); //1
-            }
+            // Clamp to limits
+            servoPosition = Range.clip(servoPosition, SERVO_MIN, SERVO_MAX);
+            angleServo.setPosition(servoPosition);
 
-            // SAVE BUTTON STATES
+            // Distance sensor feedback
+            double distanceCM = sensorDistance.getDistance(DistanceUnit.CM);
+            if (distanceCM < 10.0) gamepad2.rumble(0.8, 0.8, 200);
+            else gamepad2.stopRumble();
+
+            // Save last button states
             lastA = gamepad1.a;
             lastY = gamepad1.y;
+            lastX = gamepad2.x;
+            lastB = gamepad2.b;
 
-            // ---------------- SENSOR ----------------
-            double distanceCM = sensorDistance.getDistance(DistanceUnit.CM);
-            if (distanceCM < 10.0) {
-                gamepad2.rumble(0.8, 0.8, 200);
-            } else {
-                gamepad2.stopRumble();
-            }
-
-            // ---------------- TELEMETRY ----------------
+            // Telemetry
+            telemetry.addData("Servo Position", servoPosition);
             telemetry.addLine("INTAKE");
-            telemetry.addData("Hold In (B)", holdIn);
-            telemetry.addData("Hold Out (X)", holdOut);
+            telemetry.addData("Hold In (Bumper Right)", holdIn);
+            telemetry.addData("Hold Out (Bumper Left)", holdOut);
             telemetry.addData("Toggled In (A)", intakeToggledOn);
-            telemetry.addData("Intake Power", leftInTake.getPower());
-            telemetry.addData("Intake Power", rightInTake.getPower());
-
+            telemetry.addData("Intake Power Left", leftInTake.getPower());
+            telemetry.addData("Intake Power Right", rightInTake.getPower());
             telemetry.addLine("SHOOTER");
             telemetry.addData("Target RPM", shooterSubsystem.getTarget());
-            telemetry.addData("Power Shooter 1:", shooterMotor.getPower());
-            telemetry.addData("Power Shooter 2:", shooterMotor2.getPower());
-
-
+            telemetry.addData("Power Shooter 1", shooterMotor.getPower());
+            telemetry.addData("Power Shooter 2", shooterMotor2.getPower());
             telemetry.update();
         }
     }

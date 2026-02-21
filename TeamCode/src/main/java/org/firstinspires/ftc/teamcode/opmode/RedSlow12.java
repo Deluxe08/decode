@@ -7,7 +7,7 @@ import com.pedropathing.geometry.BezierCurve;
 import com.pedropathing.geometry.BezierLine;
 import com.pedropathing.geometry.Pose;
 import com.pedropathing.paths.PathChain;
-import org.firstinspires.ftc.teamcode.config.Robot;
+//import org.firstinspires.ftc.teamcode.config.Robot;
 import org.firstinspires.ftc.teamcode.config.subsystem.Shooter;
 import org.firstinspires.ftc.teamcode.config.subsystem.Shooterv2;
 
@@ -15,7 +15,7 @@ import org.firstinspires.ftc.teamcode.config.subsystem.Shooterv2;
 public class RedSlow12 extends LinearOpMode {
 
     private Follower follower;
-    private Robot robot;
+    //private Robot robot;
     private Shooter shooter;
     private Shooterv2 shooter2;
 
@@ -34,7 +34,7 @@ public class RedSlow12 extends LinearOpMode {
     @Override
     public void runOpMode() {
 
-        robot = new Robot(hardwareMap, telemetry);
+        //robot = new Robot(hardwareMap, telemetry);
         //follower = robot.f;
         
         shooter = new Shooter(hardwareMap);

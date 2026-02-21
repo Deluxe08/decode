@@ -8,6 +8,7 @@ import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
 import org.firstinspires.ftc.teamcode.config.subsystem.Shooter;
+import org.firstinspires.ftc.teamcode.config.subsystem.Shooterv2;
 
 
 /**
@@ -31,11 +32,14 @@ public class auto_three_blue extends LinearOpMode {
     private DcMotor rightRear = null;
 
     private Shooter shooterSubsystem;
+
+    private Shooterv2 shooterSubsystem2;
     // direct reference to shooter motor for telemetry
     private DcMotorEx shooterMotor;
+    private DcMotorEx shooterMotor2;
 
     //Other motors
-    private DcMotor inTake = null;
+    private DcMotor leftInTake, rightInTake;
 
     private DcMotor insideInTake = null;
 
@@ -47,7 +51,7 @@ public class auto_three_blue extends LinearOpMode {
     static final double     FORWARD_SPEED = 0.5;
     static final double     FASTER_SPEED = 0.8;
     static final double     TURN_SPEED    = 0.5;
-    static final double     BackWARD_SPEED = -0.2;
+    static final double     BackWARD_SPEED = -0.5;
 
     @Override
     public void runOpMode() {
@@ -56,15 +60,18 @@ public class auto_three_blue extends LinearOpMode {
         rightFront = hardwareMap.get(DcMotor.class, "rightFront");
         leftRear = hardwareMap.get(DcMotor.class,  "leftRear");
         rightRear = hardwareMap.get(DcMotor.class, "rightRear");
-        inTake = hardwareMap.get(DcMotor.class, "inTake");
+        rightInTake = hardwareMap.get(DcMotor.class, "rightInTake");
+        leftInTake = hardwareMap.get(DcMotor.class, "leftInTake");
         //insideInTake = hardwareMap.get(DcMotor.class, "insideInTake");
         shooterSubsystem = new Shooter(hardwareMap);
 
         shooterMotor = hardwareMap.get(DcMotorEx.class, "shooter");
+        shooterMotor2 = hardwareMap.get(DcMotorEx.class, "shooter2");
 
         leftFront.setDirection(DcMotorSimple.Direction.REVERSE);
         leftRear.setDirection(DcMotorSimple.Direction.REVERSE);
-        inTake.setDirection(DcMotorSimple.Direction.REVERSE);
+       // reverse
+        leftInTake.setDirection(DcMotorSimple.Direction.REVERSE);
 
         //WHEELS BRAKE
         rightFront.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
@@ -78,8 +85,71 @@ public class auto_three_blue extends LinearOpMode {
 
         waitForStart();
         //move tBACK
-        shooterSubsystem.far();
+//        shooterSubsystem.close();
+//        shooterSubsystem.periodic();
+        leftFront.setPower(BackWARD_SPEED);
+        rightFront.setPower(BackWARD_SPEED);
+        leftRear.setPower(BackWARD_SPEED);
+        rightRear.setPower(BackWARD_SPEED);
+        //shooter.setPower(0.9);
+        runtime.reset();
+        while (opModeIsActive() && (runtime.seconds() < 0.6)) {
+            telemetry.addData("Path", "command 1: %2.5f S ran", runtime.seconds());
+            telemetry.update();
+        }
+
+        //RAMP UP
+        shooterSubsystem.close();
+        shooterSubsystem2.close();
         shooterSubsystem.periodic();
+        shooterSubsystem2.periodic();
+        leftFront.setPower(0);
+        rightFront.setPower(0);
+        leftRear.setPower(0);
+        rightRear.setPower(0);
+        runtime.reset();
+        while (opModeIsActive() && (runtime.seconds() < 3)) {
+            telemetry.addData("Path", "command 2: %2.5f S ran", runtime.seconds());
+            telemetry.update();
+        }
+
+        //shoot 1
+//        shooterSubsystem.close();
+//        shooterSubsystem.periodic();
+        leftInTake.setPower(-0.7);
+        rightInTake.setPower(-0.7);
+         runtime.reset();
+         while (opModeIsActive() && (runtime.seconds() < 3)) {
+             telemetry.addData("Path", "command 3: %2.5f S ran", runtime.seconds());
+             telemetry.update();
+        }
+
+         //turn
+        shooterSubsystem.off();
+        //shooterSubsystem.periodic();
+        leftFront.setPower(-TURN_SPEED);
+        rightFront.setPower(TURN_SPEED);
+        leftRear.setPower(-TURN_SPEED);
+        rightRear.setPower(TURN_SPEED);
+        runtime.reset();
+        while (opModeIsActive() && (runtime.seconds() < 2.5)) {
+            telemetry.addData("Path", "command 3: %2.5f S ran", runtime.seconds());
+            telemetry.update();
+        }
+        //
+        leftFront.setPower(FORWARD_SPEED);
+        rightFront.setPower(FORWARD_SPEED);
+        leftRear.setPower(FORWARD_SPEED);
+        rightRear.setPower(FORWARD_SPEED);
+        leftInTake.setPower(-0.85);
+        rightInTake.setPower(-0.85);
+        runtime.reset();
+        while (opModeIsActive() && (runtime.seconds() < 5)) {
+            telemetry.addData("Path", "command 2: %2.5f S ran", runtime.seconds());
+            telemetry.update();
+        }
+
+        // go backwards after intaking the middle spike
         leftFront.setPower(BackWARD_SPEED);
         rightFront.setPower(BackWARD_SPEED);
         leftRear.setPower(BackWARD_SPEED);
@@ -90,41 +160,45 @@ public class auto_three_blue extends LinearOpMode {
             telemetry.addData("Path", "command 1: %2.5f S ran", runtime.seconds());
             telemetry.update();
         }
+        //turn angle at goal
 
-        //RAMP UP
-        shooterSubsystem.far();
-        shooterSubsystem.periodic();
-        leftFront.setPower(0);
-        rightFront.setPower(0);
-        leftRear.setPower(0);
-        rightRear.setPower(0);
-        runtime.reset();
-        while (opModeIsActive() && (runtime.seconds() < 10)) {
-            telemetry.addData("Path", "command 2: %2.5f S ran", runtime.seconds());
-            telemetry.update();
-        }
-
-        //shoot 1
-        shooterSubsystem.far();
-        shooterSubsystem.periodic();
-        inTake.setPower(-0.9);
-         runtime.reset();
-         while (opModeIsActive() && (runtime.seconds() < 8)) {
-             telemetry.addData("Path", "command 3: %2.5f S ran", runtime.seconds());
-             telemetry.update();
-        }
-        shooterSubsystem.off();
-        //shooterSubsystem.periodic(); // goes left
-        leftFront.setPower(-0.5);
-        rightFront.setPower(0.5);
-        leftRear.setPower(0.5);
-        rightRear.setPower(-0.5);
-        //shooter.setPower(0.9);
+        leftFront.setPower(-TURN_SPEED);
+        rightFront.setPower(TURN_SPEED);
+        leftRear.setPower(TURN_SPEED);
+        rightRear.setPower(-TURN_SPEED);
         runtime.reset();
         while (opModeIsActive() && (runtime.seconds() < 1.5)) {
-            telemetry.addData("Path", "command 1: %2.5f S ran", runtime.seconds());
+            telemetry.addData("Path", "command 3: %2.5f S ran", runtime.seconds());
             telemetry.update();
         }
+        //slide to the side
+        leftFront.setPower(FORWARD_SPEED);
+        rightFront.setPower(BackWARD_SPEED);
+        leftRear.setPower(FORWARD_SPEED);
+        rightRear.setPower(BackWARD_SPEED);
+        runtime.reset();
+        while (opModeIsActive() && (runtime.seconds() < 1.5)) {
+            telemetry.addData("Path", "command 3: %2.5f S ran", runtime.seconds());
+            telemetry.update();
+        }
+
+//        leftFront.setPower(FORWARD_SPEED);
+//        rightFront.setPower(BackWARD_SPEED);
+//        leftRear.setPower(FORWARD_SPEED);
+//        rightRear.setPower(BackWARD_SPEED);
+//        runtime.reset();
+//        while (opModeIsActive() && (runtime.seconds() < 1.5)) {
+//            telemetry.addData("Path", "command 3: %2.5f S ran", runtime.seconds());
+//            telemetry.update();
+//        }
+
+
+
+
+
+
+
+
 //        shooterSubsystem.close();
 //        shooterSubsystem.periodic();
 //        inTake.setPower(0);

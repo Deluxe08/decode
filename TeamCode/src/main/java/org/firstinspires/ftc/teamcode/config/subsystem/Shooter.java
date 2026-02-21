@@ -34,7 +34,7 @@ public class Shooter extends SubsystemBase {
     public static double pSwitch = 120; // error threshold to switch PID
 
     //PRESET RPM VALUES
-    public static double closeRPM = 1800;
+    public static double closeRPM = 1500;
     public static double farRPM = 5000;
 
     public Shooter(HardwareMap hardwareMap) {

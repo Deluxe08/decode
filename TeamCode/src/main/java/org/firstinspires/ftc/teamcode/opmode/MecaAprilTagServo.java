@@ -1,81 +1,128 @@
 package org.firstinspires.ftc.teamcode.opmode;
 
-import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
+import com.qualcomm.hardware.limelightvision.LLResult;
+import com.qualcomm.hardware.limelightvision.LLResultTypes;
+import com.qualcomm.hardware.limelightvision.Limelight3A;
+import com.qualcomm.hardware.rev.RevHubOrientationOnRobot;
+import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
-import com.qualcomm.robotcore.hardware.DcMotor;
+import com.qualcomm.robotcore.hardware.IMU;
 import com.qualcomm.robotcore.hardware.Servo;
-import org.firstinspires.ftc.teamcode.config.Limelight.AprilTagDistance;
 
-@TeleOp(name = "Meca AprilTag Servo", group = "Vision")
-public class MecaAprilTagServo extends LinearOpMode {
+import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
+import org.firstinspires.ftc.robotcore.external.navigation.Pose3D;
+import org.firstinspires.ftc.robotcore.external.navigation.YawPitchRollAngles;
 
-    private DcMotor leftFront, rightFront, leftRear, rightRear;
+import java.util.List;
+
+@TeleOp
+public class MecaAprilTagServo extends OpMode {
+
+    private Limelight3A limelight3A;
     private Servo angleServo;
-    private AprilTagDistance tagDistance;
+    private IMU imu;
+
+    double FAR_CM = 250;
+    double MID_CM = 160;
+    double CLOSE_CM = 90;
 
     @Override
-    public void runOpMode() {
+    public void init() {
 
-        // Initialize motors
-        leftFront  = hardwareMap.get(DcMotor.class, "leftFront");
-        rightFront = hardwareMap.get(DcMotor.class, "rightFront");
-        leftRear   = hardwareMap.get(DcMotor.class, "leftRear");
-        rightRear  = hardwareMap.get(DcMotor.class, "rightRear");
-
-        rightFront.setDirection(DcMotor.Direction.REVERSE);
-        rightRear.setDirection(DcMotor.Direction.REVERSE);
-
-        // Initialize servo
+        limelight3A = hardwareMap.get(Limelight3A.class, "limelight");
         angleServo = hardwareMap.get(Servo.class, "angleServo");
+        imu = hardwareMap.get(IMU.class, "imu");
 
-        // Initialize Limelight - Pipeline 0, AprilTag 24
-        tagDistance = new AprilTagDistance(hardwareMap, 24);
+        IMU.Parameters parameters = new IMU.Parameters(
+                new RevHubOrientationOnRobot(
+                        RevHubOrientationOnRobot.LogoFacingDirection.UP,
+                        RevHubOrientationOnRobot.UsbFacingDirection.FORWARD
+                )
+        );
 
-        telemetry.addLine("Ready");
+        imu.initialize(parameters);
+
+        limelight3A.pipelineSwitch(6);
+
+        telemetry.addLine("Initialized");
         telemetry.update();
+    }
 
-        waitForStart();
+    @Override
+    public void start() {
+        limelight3A.start();
+        imu.resetYaw();
+    }
 
-        while (opModeIsActive()) {
+    @Override
+    public void loop() {
 
-            // Mecanum drive
-            double y  = -gamepad1.left_stick_y;
-            double x  =  gamepad1.left_stick_x;
-            double rx =  gamepad1.right_stick_x;
+        // --- IMU TELEMETRY (ALWAYS ON) ---
+        YawPitchRollAngles orientation = imu.getRobotYawPitchRollAngles();
 
-            double denominator = Math.max(Math.abs(y) + Math.abs(x) + Math.abs(rx), 1);
+        double yaw = orientation.getYaw(AngleUnit.DEGREES);
+        double pitch = orientation.getPitch(AngleUnit.DEGREES);
+        double roll = orientation.getRoll(AngleUnit.DEGREES);
 
-            double fl = (y + x + rx) / denominator;
-            double bl = (y - x + rx) / denominator;
-            double fr = (y - x - rx) / denominator;
-            double br = (y + x - rx) / denominator;
+        telemetry.addData("IMU Yaw", yaw);
+        telemetry.addData("IMU Pitch", pitch);
+        telemetry.addData("IMU Roll", roll);
 
-            leftFront.setPower(fl);
-            leftRear.setPower(bl);
-            rightFront.setPower(fr);
-            rightRear.setPower(br);
+        limelight3A.updateRobotOrientation(yaw);
 
-            // Get distance from AprilTag
-            double distance = tagDistance.getDistanceCM();
+        // --- LIMELIGHT TELEMETRY (ALWAYS ON) ---
+        LLResult result = limelight3A.getLatestResult();
 
-            // Set servo based on distance
-            if (distance > 0) {
-                if (distance <= 50) {
-                    angleServo.setPosition(0.0);
-                } else if (distance >= 150) {
-                    angleServo.setPosition(0.2);
-                } else {
-                    // Interpolate between 50-150cm
-                    double ratio = (distance - 50) / 100;
-                    angleServo.setPosition(ratio * 0.2);
+        if (result == null) {
+            telemetry.addLine("Limelight: No Data");
+        }
+        else if (!result.isValid()) {
+            telemetry.addLine("Limelight: No Tag Detected");
+        }
+        else {
+
+            List<LLResultTypes.FiducialResult> tags = result.getFiducialResults();
+
+            if (tags.isEmpty()) {
+                telemetry.addLine("Limelight: No Tag Found");
+            }
+            else {
+
+                telemetry.addData("Tags Detected", tags.size());
+
+                for (LLResultTypes.FiducialResult tag : tags) {
+
+                    int id = tag.getFiducialId();
+                    Pose3D pose = tag.getTargetPoseCameraSpace();
+
+                    double x = pose.getPosition().x;
+                    double yPos = pose.getPosition().y;
+                    double z = pose.getPosition().z;
+
+                    double distanceCm = Math.sqrt(x * x + yPos * yPos + z * z);
+
+                    telemetry.addData("Tag ID", id);
+                    telemetry.addData("Distance (cm)", distanceCm);
+
+                    // Servo logic
+                    double servoPos;
+
+                    if (distanceCm >= FAR_CM) {
+                        servoPos = 0.2;
+                    }
+                    else if (distanceCm >= MID_CM) {
+                        servoPos = 0.55;
+                    }
+                    else {
+                        servoPos = 0.8;
+                    }
+
+                    angleServo.setPosition(servoPos);
+                    telemetry.addData("Servo Position", servoPos);
                 }
             }
-
-            // Telemetry
-            telemetry.addData("Distance (cm)", distance);
-            telemetry.addData("Tag Visible", tagDistance.isTargetVisible());
-            telemetry.addData("Servo Position", angleServo.getPosition());
-            telemetry.update();
         }
+
+        telemetry.update();
     }
 }
