@@ -34,6 +34,7 @@ public class auto_three_blue extends LinearOpMode {
     private Shooter shooterSubsystem;
 
     private Shooterv2 shooterSubsystem2;
+
     // direct reference to shooter motor for telemetry
     private DcMotorEx shooterMotor;
     private DcMotorEx shooterMotor2;
@@ -44,13 +45,14 @@ public class auto_three_blue extends LinearOpMode {
     private DcMotor insideInTake = null;
 
     private DcMotor shooter = null;
+    private DcMotor shooter2 = null;
 
     private ElapsedTime period  = new ElapsedTime();
     private ElapsedTime     runtime = new ElapsedTime();
 
     static final double     FORWARD_SPEED = 0.5;
     static final double     FASTER_SPEED = 0.8;
-    static final double     TURN_SPEED    = 0.5;
+    static final double     TURN_SPEED    = 0.4;
     static final double     BackWARD_SPEED = -0.5;
 
     @Override
@@ -64,6 +66,7 @@ public class auto_three_blue extends LinearOpMode {
         leftInTake = hardwareMap.get(DcMotor.class, "leftInTake");
         //insideInTake = hardwareMap.get(DcMotor.class, "insideInTake");
         shooterSubsystem = new Shooter(hardwareMap);
+        shooterSubsystem2 = new Shooterv2(hardwareMap);
 
         shooterMotor = hardwareMap.get(DcMotorEx.class, "shooter");
         shooterMotor2 = hardwareMap.get(DcMotorEx.class, "shooter2");
@@ -108,14 +111,16 @@ public class auto_three_blue extends LinearOpMode {
         leftRear.setPower(0);
         rightRear.setPower(0);
         runtime.reset();
-        while (opModeIsActive() && (runtime.seconds() < 3)) {
+        while (opModeIsActive() && (runtime.seconds() < 1.5)) {
             telemetry.addData("Path", "command 2: %2.5f S ran", runtime.seconds());
             telemetry.update();
         }
 
         //shoot 1
-//        shooterSubsystem.close();
-//        shooterSubsystem.periodic();
+        shooterSubsystem.close();
+        shooterSubsystem2.close();
+        shooterSubsystem.periodic();
+        shooterSubsystem2.periodic();
         leftInTake.setPower(-0.7);
         rightInTake.setPower(-0.7);
          runtime.reset();
@@ -132,7 +137,7 @@ public class auto_three_blue extends LinearOpMode {
         leftRear.setPower(-TURN_SPEED);
         rightRear.setPower(TURN_SPEED);
         runtime.reset();
-        while (opModeIsActive() && (runtime.seconds() < 2.5)) {
+        while (opModeIsActive() && (runtime.seconds() < 0.3)) {
             telemetry.addData("Path", "command 3: %2.5f S ran", runtime.seconds());
             telemetry.update();
         }

@@ -41,7 +41,7 @@ public class AprilTagDistanceServoController {
     }
 
     public double getPosition() {
-        return currentPosition;
+        return 0;
     }
 
     public void updateIncrement(Gamepad gamepad2) {
